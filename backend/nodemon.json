@@ -1,0 +1,6 @@
+{
+  "watch": ["index.js"],
+  "ignore": ["node_modules", "*.sql", ".env", ".git"],
+  "ext": "js,json",
+  "delay": 400
+}
