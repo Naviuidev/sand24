@@ -58,25 +58,72 @@ const uploadBlog = multer({
   },
 });
 
+/**
+ * Browser origins allowed for CORS. Use CORS_ORIGIN (one) and/or CORS_ORIGINS (comma-separated).
+ * For each non-localhost origin, the apex ↔ www variant is added automatically
+ * (e.g. https://sand24.in also allows https://www.sand24.in).
+ */
+function buildAllowedCorsOriginSet() {
+  const raw = [process.env.CORS_ORIGIN, process.env.CORS_ORIGINS]
+    .filter(Boolean)
+    .join(",")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const set = new Set(raw);
+  for (const o of [...set]) {
+    try {
+      const u = new URL(o);
+      if (!/^https?:$/.test(u.protocol)) continue;
+      const portPart = u.port ? `:${u.port}` : "";
+      const host = u.hostname;
+      const isLocal =
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host.endsWith(".localhost");
+      if (isLocal) continue;
+      if (host.startsWith("www.")) {
+        set.add(`${u.protocol}//${host.slice(4)}${portPart}`);
+      } else {
+        set.add(`${u.protocol}//www.${host}${portPart}`);
+      }
+    } catch {
+      /* ignore invalid URL */
+    }
+  }
+  return set;
+}
+
+const ALLOWED_CORS_ORIGINS = buildAllowedCorsOriginSet();
+
 app.use(
   cors({
     origin(origin, callback) {
-      const configuredOrigin = process.env.CORS_ORIGIN;
       const isLocalhostOrigin =
         !origin ||
         /^http:\/\/localhost:\d+$/.test(origin) ||
         /^http:\/\/127\.0\.0\.1:\d+$/.test(origin);
 
-      if (
-        isLocalhostOrigin ||
-        (configuredOrigin && origin === configuredOrigin) ||
-        (!configuredOrigin && origin === "http://localhost:5173")
-      ) {
+      if (isLocalhostOrigin) {
         callback(null, true);
         return;
       }
 
-      callback(new Error(`CORS blocked for origin: ${origin}`));
+      if (ALLOWED_CORS_ORIGINS.size === 0) {
+        if (origin === "http://localhost:5173") {
+          callback(null, true);
+          return;
+        }
+        callback(null, false);
+        return;
+      }
+
+      if (ALLOWED_CORS_ORIGINS.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, false);
     },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   })
@@ -3033,6 +3080,19 @@ app.delete("/api/categories/:id", async (req, res) => {
 
     res.json({ success: true, message: "Category deleted successfully." });
   } catch (error) {
+    const fkBlocked =
+      error.errno === 1451 ||
+      error.code === "ER_ROW_IS_REFERENCED" ||
+      error.code === "ER_ROW_IS_REFERENCED_2" ||
+      String(error.sqlMessage || "").toLowerCase().includes("foreign key constraint");
+    if (fkBlocked) {
+      res.status(409).json({
+        success: false,
+        message:
+          "Cannot delete this category while products are assigned to it. Move or delete those products first.",
+      });
+      return;
+    }
     res.status(500).json({
       success: false,
       message: "Failed to delete category.",
