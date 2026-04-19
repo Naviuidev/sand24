@@ -1,6 +1,6 @@
 import { Offcanvas } from "bootstrap";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_BASE_URL } from "./config";
 import { useAuth } from "./AuthContext";
@@ -22,14 +22,6 @@ function HeaderIconNavLink({ to, label, badge, children }) {
         </span>
       ) : null}
     </Link>
-  );
-}
-
-function PublicNavIcon({ children, label, ...rest }) {
-  return (
-    <button type="button" className="public-header-icon" aria-label={label} {...rest}>
-      {children}
-    </button>
   );
 }
 
@@ -93,9 +85,25 @@ function MobileNavAccordion({ groups }) {
 }
 
 function AudienceNavDropdown({ label, categories: items }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="public-nav-dropdown">
-      <button type="button" className="public-nav-trigger" aria-haspopup="menu">
+    <div
+      className={`public-nav-dropdown${open ? " public-nav-dropdown--open" : ""}`}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocusCapture={() => setOpen(true)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
+      }}
+    >
+      <button
+        type="button"
+        className="public-nav-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
         <span>{label}</span>
         <svg className="public-nav-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden>
           <path
@@ -120,6 +128,7 @@ function AudienceNavDropdown({ label, categories: items }) {
                 role="menuitem"
                 to={`/products?category=${c.id}`}
                 className="public-dropdown-link"
+                onClick={() => setOpen(false)}
               >
                 {c.name}
               </Link>
@@ -141,6 +150,16 @@ function AccountDropdownPanel({ onNavigate }) {
         <li role="none">
           <Link role="menuitem" className="public-dropdown-link" to="/profile" onClick={onNavigate}>
             Profile
+          </Link>
+        </li>
+        <li role="none">
+          <Link
+            role="menuitem"
+            className="public-dropdown-link"
+            to="/profile?tab=queries"
+            onClick={onNavigate}
+          >
+            Queries
           </Link>
         </li>
         <li role="none">
@@ -170,7 +189,7 @@ function AccountDropdownPanel({ onNavigate }) {
       </li>
       <li role="none">
         <Link role="menuitem" className="public-dropdown-link" to="/register" onClick={onNavigate}>
-          Sign Up ( with Social media or Mobile Num )
+          Sign up
         </Link>
       </li>
     </ul>
@@ -181,11 +200,15 @@ export default function PublicSiteHeader() {
   const { user, logout } = useAuth();
   const { cartQuantity, wishlistCount } = useShop();
   const navigate = useNavigate();
+  const location = useLocation();
   const [categories, setCategories] = useState([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const offcanvasRef = useRef(null);
   const mobileAccountRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -231,6 +254,24 @@ export default function PublicSiteHeader() {
     document.addEventListener("click", onDoc);
     return () => document.removeEventListener("click", onDoc);
   }, []);
+
+  useEffect(() => {
+    if (!searchOpen) return undefined;
+    const q = new URLSearchParams(location.search).get("q");
+    setSearchQuery(q || "");
+    const t = window.setTimeout(() => searchInputRef.current?.focus(), 50);
+    const onKey = (e) => {
+      if (e.key === "Escape") setSearchOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [searchOpen, location.search]);
 
   const closeMobileNav = () => {
     const el = offcanvasRef.current ?? document.getElementById("publicNavOffcanvas");
@@ -291,12 +332,19 @@ export default function PublicSiteHeader() {
             </Link>
           </div>
           <div className="public-header-tools">
-            <PublicNavIcon label="Search">
+            <button
+              type="button"
+              className="public-header-icon"
+              aria-label="Search products"
+              aria-expanded={searchOpen}
+              aria-controls="public-header-search-panel"
+              onClick={() => setSearchOpen((o) => !o)}
+            >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.5" />
                 <path d="M16 16l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
-            </PublicNavIcon>
+            </button>
             <HeaderIconNavLink to="/wishlist" label="Wishlist" badge={wishlistCount}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path
@@ -324,37 +372,51 @@ export default function PublicSiteHeader() {
             <div className="public-account-wrap d-none d-lg-block" tabIndex={-1}>
               {user ? (
                 <span className="public-account-trigger">
+                  <span className="public-account-icon-anchor">
+                    <span className="public-account-icon" aria-hidden>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="9" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+                        <path
+                          d="M5 20v-1c0-2.5 2-4.5 7-4.5s7 2 7 4.5v1"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </span>
+                    <div className="public-account-dropdown" aria-label="Account menu">
+                      <AccountDropdownPanel onNavigate={() => {}} />
+                    </div>
+                  </span>
                   <span className="public-account-name" title={displayName}>
                     {displayName}
                   </span>
-                  <span className="public-account-icon" aria-hidden>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="9" r="3.5" stroke="currentColor" strokeWidth="1.5" />
-                      <path
-                        d="M5 20v-1c0-2.5 2-4.5 7-4.5s7 2 7 4.5v1"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </span>
                 </span>
               ) : (
-                <button type="button" className="public-account-icon-btn public-header-icon" aria-label="Account">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-                    <circle cx="12" cy="9" r="3.5" stroke="currentColor" strokeWidth="1.5" />
-                    <path
-                      d="M5 20v-1c0-2.5 2-4.5 7-4.5s7 2 7 4.5v1"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
+                <span className="public-account-icon-anchor">
+                  <button
+                    type="button"
+                    className="public-account-trigger public-account-icon-btn public-header-icon"
+                    aria-label="Account"
+                    aria-haspopup="menu"
+                  >
+                    <span className="public-account-icon" aria-hidden>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="9" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+                        <path
+                          d="M5 20v-1c0-2.5 2-4.5 7-4.5s7 2 7 4.5v1"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </span>
+                  </button>
+                  <div className="public-account-dropdown" aria-label="Account menu">
+                    <AccountDropdownPanel onNavigate={() => {}} />
+                  </div>
+                </span>
               )}
-              <div className="public-account-dropdown" aria-label="Account">
-                <AccountDropdownPanel onNavigate={() => {}} />
-              </div>
             </div>
 
             <div className="d-lg-none position-relative" ref={mobileAccountRef}>
@@ -490,13 +552,6 @@ export default function PublicSiteHeader() {
             >
               SAND 24 STORY
             </NavLink>
-            <Link
-              to="/profile?tab=orders"
-              className="public-mobile-static-link"
-              data-bs-dismiss="offcanvas"
-            >
-              TRACK ORDER
-            </Link>
             <NavLink
               to="/contact"
               className={({ isActive }) =>
@@ -506,17 +561,71 @@ export default function PublicSiteHeader() {
             >
               CONTACT
             </NavLink>
+            <Link
+              to="/profile?tab=orders"
+              className="public-mobile-static-link"
+              data-bs-dismiss="offcanvas"
+            >
+              TRACK ORDER
+            </Link>
+            <NavLink
+              to="/returns-refund"
+              className={({ isActive }) =>
+                `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
+              }
+              data-bs-dismiss="offcanvas"
+            >
+              RETURNS &amp; REFUND
+            </NavLink>
+            <NavLink
+              to="/terms-and-conditions"
+              className={({ isActive }) =>
+                `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
+              }
+              data-bs-dismiss="offcanvas"
+            >
+              TERMS &amp; CONDITIONS
+            </NavLink>
+            <NavLink
+              to="/privacy-policy"
+              className={({ isActive }) =>
+                `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
+              }
+              data-bs-dismiss="offcanvas"
+            >
+              PRIVACY POLICY
+            </NavLink>
           </nav>
           <div className="public-mobile-account mt-3 pt-3 border-top">
             {user ? (
               <>
-                <p className="public-mobile-account-user mb-2 small text-muted">{displayName}</p>
+                <div className="public-mobile-account-user-row d-flex align-items-center gap-2 mb-2">
+                  <span className="public-mobile-account-icon text-muted" aria-hidden>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="9" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+                      <path
+                        d="M5 20v-1c0-2.5 2-4.5 7-4.5s7 2 7 4.5v1"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                  <span className="public-mobile-account-user small text-muted text-truncate">{displayName}</span>
+                </div>
                 <Link
                   className="public-mobile-static-link d-block"
                   to="/profile"
                   data-bs-dismiss="offcanvas"
                 >
                   Profile
+                </Link>
+                <Link
+                  className="public-mobile-static-link d-block"
+                  to="/profile?tab=queries"
+                  data-bs-dismiss="offcanvas"
+                >
+                  Queries
                 </Link>
                 <button
                   type="button"
@@ -545,6 +654,72 @@ export default function PublicSiteHeader() {
               </>
             )}
           </div>
+        </div>
+      </div>
+
+      <div
+        className={`public-header-search${searchOpen ? " public-header-search--open" : ""}`}
+        aria-hidden={!searchOpen}
+      >
+        <div
+          className="public-header-search__backdrop"
+          role="presentation"
+          onClick={() => setSearchOpen(false)}
+        />
+        <div
+          id="public-header-search-panel"
+          className="public-header-search__sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search products"
+        >
+          <form
+            className="public-header-search__form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = searchQuery.trim();
+              if (q) {
+                navigate(`/products?q=${encodeURIComponent(q)}`);
+              } else {
+                navigate("/products");
+              }
+              setSearchOpen(false);
+            }}
+          >
+            <div className="public-header-search__head">
+              <h2 className="public-header-search__title">Search</h2>
+              <button
+                type="button"
+                className="public-header-search__close"
+                aria-label="Close search"
+                onClick={() => setSearchOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <label htmlFor="public-header-search-input" className="visually-hidden">
+              Search by product name or category
+            </label>
+            <div className="public-header-search__field-row">
+              <input
+                id="public-header-search-input"
+                ref={searchInputRef}
+                type="search"
+                name="q"
+                autoComplete="off"
+                placeholder="Search by title or category…"
+                className="public-header-search__input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <button type="submit" className="public-header-search__submit">
+                Go
+              </button>
+            </div>
+            <p className="public-header-search__hint small text-muted mb-0">
+              Find products by name, category, or collection.
+            </p>
+          </form>
         </div>
       </div>
     </header>

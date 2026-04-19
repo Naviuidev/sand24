@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const FOOTER_BRANCH_LEFT_URL = "/assets/images/footer/branch-left.png";
 const FOOTER_BRANCH_RIGHT_URL = "/assets/images/footer/branch-right.png";
@@ -76,6 +76,7 @@ function FooterContactCopyRow({ value, copyLabel }) {
 }
 
 export default function PublicSiteFooter() {
+  const navigate = useNavigate();
   const [contactModal, setContactModal] = useState(null);
 
   return (
@@ -108,6 +109,12 @@ export default function PublicSiteFooter() {
           className="website-public-footer__signup"
           onSubmit={(e) => {
             e.preventDefault();
+            const email = String(new FormData(e.currentTarget).get("email") || "").trim();
+            if (email) {
+              navigate(`/register?${new URLSearchParams({ email }).toString()}`);
+            } else {
+              navigate("/register");
+            }
           }}
         >
           <div className="website-public-footer__signup-shell">
@@ -241,7 +248,7 @@ export default function PublicSiteFooter() {
               </li>
               <li>
                 <a
-                  href="https://www.facebook.com/sand24.in"
+                  href="https://www.facebook.com/share/18MjRBVVPQ/?mibextid=wwXIfr"
                   className="website-public-footer__link"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -257,16 +264,6 @@ export default function PublicSiteFooter() {
                   rel="noopener noreferrer"
                 >
                   Twitter
-                </a>
-              </li>
-              <li>
-                <a
-                  href="https://www.youtube.com/@sand24.in"
-                  className="website-public-footer__link"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Youtube
                 </a>
               </li>
             </ul>

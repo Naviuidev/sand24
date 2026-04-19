@@ -24,6 +24,12 @@ export default function ProductsPage() {
     return Number.isFinite(n) && n > 0 ? n : null;
   }, [searchParams]);
 
+  const searchQueryFromUrl = useMemo(() => {
+    const raw = searchParams.get("q") ?? searchParams.get("search");
+    if (raw == null) return "";
+    return String(raw).trim();
+  }, [searchParams]);
+
   const [products, setProducts] = useState([]);
   const [loadError, setLoadError] = useState("");
   const [categoryTitleFallback, setCategoryTitleFallback] = useState(null);
@@ -59,9 +65,12 @@ export default function ProductsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const params =
-          categoryIdFromUrl != null ? { categoryId: String(categoryIdFromUrl) } : undefined;
-        const res = await axios.get(`${API_BASE_URL}/api/products`, { params });
+        const params = {};
+        if (categoryIdFromUrl != null) params.categoryId = String(categoryIdFromUrl);
+        if (searchQueryFromUrl.length > 0) params.q = searchQueryFromUrl;
+        const res = await axios.get(`${API_BASE_URL}/api/products`, {
+          params: Object.keys(params).length ? params : undefined,
+        });
         const data = res.data?.data || [];
         if (!cancelled) {
           setProducts(data);
@@ -87,13 +96,16 @@ export default function ProductsPage() {
     return () => {
       cancelled = true;
     };
-  }, [categoryIdFromUrl]);
+  }, [categoryIdFromUrl, searchQueryFromUrl]);
 
   const catalogHeadingText = useMemo(() => {
+    if (searchQueryFromUrl.length > 0) {
+      return `Search results for “${searchQueryFromUrl}”`;
+    }
     if (categoryIdFromUrl == null) return "All products";
     if (products.length > 0) return products[0].categoryLabel;
     return categoryTitleFallback || "Products";
-  }, [categoryIdFromUrl, products, categoryTitleFallback]);
+  }, [categoryIdFromUrl, products, categoryTitleFallback, searchQueryFromUrl]);
 
   const categoryLabels = useMemo(
     () => [...new Set(products.map((p) => p.categoryLabel).filter(Boolean))].sort((a, b) =>
@@ -161,15 +173,28 @@ export default function ProductsPage() {
           <h2
             id="products-catalog-heading"
             className={`website-products-catalog__heading text-center${
-              categoryIdFromUrl != null ? " website-products-catalog__heading--filtered" : ""
+              categoryIdFromUrl != null || searchQueryFromUrl.length > 0
+                ? " website-products-catalog__heading--filtered"
+                : ""
             }`}
           >
             {catalogHeadingText}
           </h2>
-          {categoryIdFromUrl != null ? (
+          {categoryIdFromUrl != null || searchQueryFromUrl.length > 0 ? (
             <p className="text-center mb-3">
-              <Link to="/products" className="website-products-catalog__view-all-link">
-                View all products
+              <Link
+                to={
+                  categoryIdFromUrl != null && searchQueryFromUrl.length > 0
+                    ? `/products?q=${encodeURIComponent(searchQueryFromUrl)}`
+                    : "/products"
+                }
+                className="website-products-catalog__view-all-link"
+              >
+                {searchQueryFromUrl.length > 0 && categoryIdFromUrl != null
+                  ? "Clear category filter"
+                  : searchQueryFromUrl.length > 0
+                    ? "Clear search"
+                    : "View all products"}
               </Link>
             </p>
           ) : null}

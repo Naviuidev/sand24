@@ -47,7 +47,6 @@ import heroImgUrl from "./assets/heroImg.png";
 
 const HERO_IMAGE_URL = heroImgUrl;
 const LINEN_COLLECTION_HERO_BG_URL = "/assets/images/linen-collection/hero-fullbleed.png";
-const FEATURED_PRODUCT_IMAGE_URL = "/assets/images/blueDress.png";
 const CHANDERI_GIRL_SPOTLIGHT_IMAGE_URL = "/assets/images/chanderi-lehenga-featured.png";
 const CHANDERI_BOY_SPOTLIGHT_IMAGE_URL = "/assets/images/chanderi-spotlight-collage.png";
 const CHANDERI_SPOTLIGHT_TITLE = "Chanderi Lehenga Set | Hand-Block Printed";
@@ -83,7 +82,7 @@ const HOME_PILLAR_CARDS = [
     title: "Browse Our Newest Prints",
     tagline: "Shop by Green Touch",
     btnLabel: "Shop Prints",
-    href: "#home-products-heading",
+    href: "/sustainability",
   },
   {
     key: "craft",
@@ -94,7 +93,7 @@ const HOME_PILLAR_CARDS = [
     title: "Craft & Sustainability",
     tagline: "Clothing That Tells a Story",
     btnLabel: "Our Green Journal",
-    href: "/journal",
+    href: "/sustainability",
   },
   {
     key: "vision",
@@ -105,7 +104,7 @@ const HOME_PILLAR_CARDS = [
     title: "Design that Puts Nature First",
     tagline: "We Craft Slow",
     btnLabel: "Our Sand 24 Vision",
-    href: "/story",
+    href: "/sustainability",
   },
 ];
 
@@ -144,9 +143,20 @@ function adminApiHeaders() {
   return k ? { "X-Admin-Key": k } : {};
 }
 
+/** Scroll to top on client-side navigation so new pages start at the beginning. */
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname, search]);
+  return null;
+}
+
 function App() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       <Route path="/" element={<WebsiteHome />} />
       <Route path="/products/:productId/buy-now" element={<BuyNowPage />} />
       <Route path="/checkout" element={<CheckoutPage />} />
@@ -181,6 +191,7 @@ function App() {
       <Route path="/admin/blog" element={<AdminBlogPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 
@@ -328,6 +339,7 @@ function CustomerLoginPage() {
 function CustomerRegisterPage() {
   const { setSession, showBannedModal } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState("form");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -338,6 +350,16 @@ function CustomerRegisterPage() {
   const [error, setError] = useState("");
   const [otpMeta, setOtpMeta] = useState({ devConsole: false, serverMessage: "" });
   const [duplicateEmailModalOpen, setDuplicateEmailModalOpen] = useState(false);
+
+  useEffect(() => {
+    const raw = searchParams.get("email");
+    if (raw == null || String(raw).trim() === "") return;
+    try {
+      setEmail(decodeURIComponent(String(raw).trim()));
+    } catch {
+      setEmail(String(raw).trim());
+    }
+  }, [searchParams]);
 
   async function onRegister(e) {
     e.preventDefault();
@@ -1080,20 +1102,20 @@ function WebsiteHome() {
   }, []);
 
   return (
-    <div className="website-home-page">
+    <div className="website-home-page website-home-page--home">
       <PublicSiteHeader />
 
       <section className="website-hero-strip" aria-label="Featured">
-        <div className="website-hero-banner">
-          <img
-            src={HERO_IMAGE_URL}
-            alt="Sand24 — New Fashion and Summer Idylls. Comfort, style, quality."
-            className="website-hero-fullwidth"
-            width={1024}
-            height={538}
-            decoding="async"
-            fetchPriority="high"
-          />
+        <div className="container">
+          <div className="website-hero-banner">
+            <img
+              src={HERO_IMAGE_URL}
+              alt="Sand24 — New Fashion and Summer Idylls. Comfort, style, quality."
+              className="website-hero-fullwidth"
+              decoding="async"
+              fetchPriority="high"
+            />
+          </div>
         </div>
       </section>
 
@@ -1108,16 +1130,12 @@ function WebsiteHome() {
             crafted to gently embrace your skin.
           </h2>
           <p className="website-intro-cta__tagline">Better for you Better for planet</p>
-          <a
-            href="#new-collection"
-            className="website-intro-cta__btn"
-            onClick={(e) => e.preventDefault()}
-          >
+          <Link to="/products" className="website-intro-cta__btn">
             New Collection
             <span className="website-intro-cta__btn-arrow" aria-hidden>
               →
             </span>
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -1262,21 +1280,51 @@ function WebsiteHome() {
           aria-labelledby="featured-product-heading"
         >
           <div className="container">
-            <div className="row align-items-center gx-3 gx-lg-4 gy-4">
-              <div className="col-12 col-md-7 col-lg-7 website-featured-product__visual-col">
+            <div className="row align-items-center gy-4 website-featured-product__row">
+              <div className="col-12 col-md-8 col-lg-8 website-featured-product__visual-col">
                 <div className="website-featured-product__visual my-2">
-                  <img
-                    src={FEATURED_PRODUCT_IMAGE_URL}
-                    alt={homeProducts[0].title}
-                    className="img-fluid w-100 website-featured-product__collage"
-                    width={798}
-                    height={1064}
-                    loading="lazy"
-                    decoding="async"
-                  />
+                  <Link
+                    to={`/products/${homeProducts[0].id}`}
+                    className="website-featured-product__gallery"
+                    aria-label={`${homeProducts[0].title} — view product`}
+                  >
+                    <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--main">
+                      <img
+                        src={productImageSrc(homeProducts[0].id, 1)}
+                        alt={homeProducts[0].title}
+                        className="website-featured-product__gallery-img"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                    <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--top">
+                      <img
+                        src={productImageSrc(homeProducts[0].id, 2)}
+                        alt=""
+                        className="website-featured-product__gallery-img"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </div>
+                    <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--bottom">
+                      <img
+                        src={productImageSrc(homeProducts[0].id, 3)}
+                        alt=""
+                        className="website-featured-product__gallery-img"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    </div>
+                  </Link>
                 </div>
               </div>
-              <div className="col-12 col-md-5 col-lg-5 website-featured-product__copy">
+              <div className="col-12 col-md-4 col-lg-4 website-featured-product__copy">
                 <div className="my-2">
                   <h2 id="featured-product-heading" className="website-featured-product__title">
                     {homeProducts[0].title}
@@ -1353,16 +1401,12 @@ function WebsiteHome() {
             ))}
           </ul>
           <div className="website-mountain-meadow__cta">
-            <a
-              href="#home-products-heading"
-              className="website-intro-cta__btn"
-              onClick={(e) => e.preventDefault()}
-            >
+            <Link to="/journal" className="website-intro-cta__btn">
               View More
               <span className="website-intro-cta__btn-arrow" aria-hidden>
                 →
               </span>
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -1382,16 +1426,12 @@ function WebsiteHome() {
                   <br />
                   Better for planet
                 </p>
-                <a
-                  href="#home-products-heading"
-                  className="website-featured-product__btn"
-                  onClick={(e) => e.preventDefault()}
-                >
+                <Link to="/products" className="website-featured-product__btn">
                   View More
                   <span className="website-featured-product__btn-arrow" aria-hidden>
                     →
                   </span>
-                </a>
+                </Link>
               </div>
             </div>
             <div className="col-12 col-md-7 col-lg-7 website-featured-product__visual-col website-featured-product--chanderi__visual">
@@ -1426,16 +1466,12 @@ function WebsiteHome() {
                   <br />
                   Better for planet
                 </p>
-                <a
-                  href="#home-products-heading"
-                  className="website-featured-product__btn"
-                  onClick={(e) => e.preventDefault()}
-                >
+                <Link to="/products" className="website-featured-product__btn">
                   View More
                   <span className="website-featured-product__btn-arrow" aria-hidden>
                     →
                   </span>
-                </a>
+                </Link>
               </div>
             </div>
             <div className="col-12 col-md-7 col-lg-7 website-featured-product__visual-col website-featured-product--chanderi__visual">
@@ -1480,16 +1516,12 @@ function WebsiteHome() {
                   </div>
                   <p className="website-studio-sustain__text">{card.body}</p>
                   <div className="website-studio-sustain__cta">
-                    <a
-                      href="#consider-clothing-heading"
-                      className="website-intro-cta__btn"
-                      onClick={(e) => e.preventDefault()}
-                    >
+                    <Link to="/story" className="website-intro-cta__btn">
                       View More
                       <span className="website-intro-cta__btn-arrow" aria-hidden>
                         →
                       </span>
-                    </a>
+                    </Link>
                   </div>
                 </article>
               </div>
@@ -1520,16 +1552,12 @@ function WebsiteHome() {
             <p className="website-linen-collection-hero__tagline">
               From Nature&apos;s Peel to sand24&apos;s Perfection.
             </p>
-            <a
-              href="#home-products-heading"
-              className="website-linen-collection-hero__btn"
-              onClick={(e) => e.preventDefault()}
-            >
+            <Link to="/products" className="website-linen-collection-hero__btn">
               View More
               <span className="website-linen-collection-hero__btn-arrow" aria-hidden>
                 →
               </span>
-            </a>
+            </Link>
           </div>
         </div>
       </section>

@@ -3178,15 +3178,27 @@ app.get("/api/products", async (req, res) => {
       if (Number.isFinite(n) && n > 0) filterCategoryId = n;
     }
 
+    const rawQ = String(req.query.q ?? req.query.search ?? "").trim();
+    const safeSearch = rawQ.replace(/[%_\\]/g, "");
+
     let sql = `SELECT p.id, p.title, p.original_price, p.offer_percent, p.final_price,
               p.quantity_available, p.created_at, p.category_id,
               c.audience, c.name AS category_name
        FROM products p
        INNER JOIN categories c ON c.id = p.category_id`;
     const params = [];
+    const conditions = [];
     if (filterCategoryId != null) {
-      sql += ` WHERE p.category_id = ?`;
+      conditions.push(`p.category_id = ?`);
       params.push(filterCategoryId);
+    }
+    if (safeSearch.length > 0) {
+      const like = `%${safeSearch}%`;
+      conditions.push(`(p.title LIKE ? OR c.name LIKE ? OR c.audience LIKE ?)`);
+      params.push(like, like, like);
+    }
+    if (conditions.length > 0) {
+      sql += ` WHERE ${conditions.join(" AND ")}`;
     }
     sql += ` ORDER BY p.created_at DESC`;
 
