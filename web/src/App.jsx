@@ -43,8 +43,9 @@ import AdminOrderFulfillment from "./AdminOrderFulfillment.jsx";
 import AdminSupportQueriesPanel from "./AdminSupportQueriesPanel.jsx";
 import AdminContactPanel from "./AdminContactPanel.jsx";
 import "./App.css";
+import heroImgUrl from "./assets/heroImg.png";
 
-const HERO_IMAGE_URL = "https://sand24.in/assets/images/heroImg.png";
+const HERO_IMAGE_URL = heroImgUrl;
 const LINEN_COLLECTION_HERO_BG_URL = "/assets/images/linen-collection/hero-fullbleed.png";
 const FEATURED_PRODUCT_IMAGE_URL = "/assets/images/blueDress.png";
 const CHANDERI_GIRL_SPOTLIGHT_IMAGE_URL = "/assets/images/chanderi-lehenga-featured.png";
