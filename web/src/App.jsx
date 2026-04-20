@@ -1125,13 +1125,12 @@ function WebsiteHome() {
       >
         <div className="website-intro-cta__inner">
           <h2 id="intro-cta-heading" className="website-intro-cta__headline">
-            The softest organic cotton you&apos;ll ever experience,
-            <br />
-            crafted to gently embrace your skin.
+          Organic clothing where comfort<br/>meets quiet luxury
+
           </h2>
-          <p className="website-intro-cta__tagline">Better for you Better for planet</p>
+          <p className="website-intro-cta__tagline">Designed for every day comfort using organic fabrics and natural dyes.</p>
           <Link to="/products" className="website-intro-cta__btn">
-            New Collection
+            Explore the Collection
             <span className="website-intro-cta__btn-arrow" aria-hidden>
               →
             </span>
@@ -1226,8 +1225,8 @@ function WebsiteHome() {
                 </div>
                 <h5 className="text-dark iconText">Transparency</h5>
                 <p className="paraText">
-                  Every Sand24 garment is transparent from fibre to finish - from making the fabric to the final
-                  garment.
+                Every Sand24 garment is transparent from fibre to finish - from making the fabric to the final garment.
+
                 </p>
                 
               </div>
@@ -1247,8 +1246,7 @@ function WebsiteHome() {
                 </div>
                 <h5 className="text-dark iconText">Zero Plastic</h5>
                 <p className="paraText">
-                  From packaging to labels, we minimise plastic use by choosing paper-based and compostable
-                  alternatives.
+                From packaging to labels, we minimise plastic use by choosing paper-based and compostable alternatives.
                 </p>
               </div>
             </div>
@@ -1265,9 +1263,10 @@ function WebsiteHome() {
                     decoding="async"
                   />
                 </div>
-                <h5 className="text-dark iconText">Smart QR Labels</h5>
+                <h5 className="text-dark iconText">Material Integrity</h5>
                 <p className="paraText">
-                  Focused on organic fabrics and natural dyes, chosen for comfort, durability, and feel.
+                Focused on organic fabrics and natural dyes, chosen for comfort, durability, and feel.
+
                 </p>
               </div>
             </div>

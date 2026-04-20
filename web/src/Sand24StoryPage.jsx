@@ -40,24 +40,21 @@ export default function Sand24StoryPage() {
           <div className="website-story-founder__grid">
             <div className="website-story-founder__copy">
               <h2 id="sand24-story-founder-heading" className="website-story-founder__title">
-                The Mountain Meadow Halter Neck
+              Hi, I’m Bhanu, the proud founder and creative force behind SAND24.
               </h2>
-              <p className="website-story-founder__subtitle">Better for you</p>
+              <p className="website-story-founder__subtitle">Welcome to SAND24—where fashion feels like home.</p>
+             
               <p className="website-story-founder__para">
-                Bhanu Kusuma Founder and Chief Creative &amp; Innovation Officer for Ananas Anam
-                Ltd, is an ethical entrepreneur with a vision for a more sustainable future that
-                connects people, environment and economy.
-              </p>
-              <p className="website-story-founder__para">
-                Originally from Spain, Carmen&apos;s career has taken her around the world. With a
-                background in leathergoods design and manufacturing she worked as an industry
-                consultant, and was brought to the Philippines by the Design Centre Philippines in
-                the 1990s, where the journey of Piñatex® began.
+              With over 9 years of experience in Fashion Design, I’ve always been driven by a desire to create something meaningful—clothing that not only looks beautiful but feels like you.
               </p>
               <p className="website-story-founder__para mb-0">
-                Her perseverance in developing a natural, sustainable leather alternative saw her
-                undertake a PhD at the Royal College of Art (U.K.), further developing Ananas Anam
-                through the incubator program at InnovationRCA.
+              SAND24 was born from the idea of blending elegance with ease, where every piece is a reminder to slow down, breathe, and reconnect with yourself and with nature.
+              </p>
+              <p className="website-story-founder__para mb-0">
+              I believe fashion should be more than just style—it should be a feeling, an expression of presence, calm, and individuality. That’s why each design at SAND24 reflects my love for craftsmanship, innovation, and wearable art.
+              </p>
+              <p className="website-story-founder__para mb-0">
+              When I’m not immersed in fabric and form, you’ll find me sketching new ideas, experimenting with textures, or traveling in search of inspiration.
               </p>
             </div>
             <div className="website-story-founder__visual">
