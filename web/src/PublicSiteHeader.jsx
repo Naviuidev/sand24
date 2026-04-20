@@ -25,7 +25,7 @@ function HeaderIconNavLink({ to, label, badge, children }) {
   );
 }
 
-function MobileNavAccordion({ groups }) {
+function MobileNavAccordion({ groups, onLinkClick }) {
   const audiences = [
     { id: "him", key: "for_him", label: "FOR HIM" },
     { id: "her", key: "for_her", label: "FOR HER" },
@@ -67,7 +67,7 @@ function MobileNavAccordion({ groups }) {
                         <Link
                           to={`/products?category=${c.id}`}
                           className="public-mobile-sublink"
-                          data-bs-dismiss="offcanvas"
+                          onClick={onLinkClick}
                         >
                           {c.name}
                         </Link>
@@ -516,13 +516,9 @@ export default function PublicSiteHeader() {
           />
         </div>
         <div className="offcanvas-body">
-          <MobileNavAccordion groups={groups} />
+          <MobileNavAccordion groups={groups} onLinkClick={closeMobileNav} />
           <nav className="public-mobile-static-nav" aria-label="Site links">
-            <Link
-              to="/products"
-              className="public-mobile-static-link"
-              data-bs-dismiss="offcanvas"
-            >
+            <Link to="/products" className="public-mobile-static-link" onClick={closeMobileNav}>
               PRODUCTS
             </Link>
             <NavLink
@@ -530,7 +526,7 @@ export default function PublicSiteHeader() {
               className={({ isActive }) =>
                 `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
               }
-              data-bs-dismiss="offcanvas"
+              onClick={closeMobileNav}
             >
               SAND 24 JOURNAL
             </NavLink>
@@ -539,7 +535,7 @@ export default function PublicSiteHeader() {
               className={({ isActive }) =>
                 `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
               }
-              data-bs-dismiss="offcanvas"
+              onClick={closeMobileNav}
             >
               SUSTAINABILITY
             </NavLink>
@@ -548,7 +544,7 @@ export default function PublicSiteHeader() {
               className={({ isActive }) =>
                 `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
               }
-              data-bs-dismiss="offcanvas"
+              onClick={closeMobileNav}
             >
               SAND 24 STORY
             </NavLink>
@@ -557,15 +553,11 @@ export default function PublicSiteHeader() {
               className={({ isActive }) =>
                 `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
               }
-              data-bs-dismiss="offcanvas"
+              onClick={closeMobileNav}
             >
               CONTACT
             </NavLink>
-            <Link
-              to="/profile?tab=orders"
-              className="public-mobile-static-link"
-              data-bs-dismiss="offcanvas"
-            >
+            <Link to="/profile?tab=orders" className="public-mobile-static-link" onClick={closeMobileNav}>
               TRACK ORDER
             </Link>
             <NavLink
@@ -573,7 +565,7 @@ export default function PublicSiteHeader() {
               className={({ isActive }) =>
                 `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
               }
-              data-bs-dismiss="offcanvas"
+              onClick={closeMobileNav}
             >
               RETURNS &amp; REFUND
             </NavLink>
@@ -582,7 +574,7 @@ export default function PublicSiteHeader() {
               className={({ isActive }) =>
                 `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
               }
-              data-bs-dismiss="offcanvas"
+              onClick={closeMobileNav}
             >
               TERMS &amp; CONDITIONS
             </NavLink>
@@ -591,7 +583,7 @@ export default function PublicSiteHeader() {
               className={({ isActive }) =>
                 `public-mobile-static-link${isActive ? " public-mobile-static-link--active" : ""}`
               }
-              data-bs-dismiss="offcanvas"
+              onClick={closeMobileNav}
             >
               PRIVACY POLICY
             </NavLink>
@@ -613,25 +605,21 @@ export default function PublicSiteHeader() {
                   </span>
                   <span className="public-mobile-account-user small text-muted text-truncate">{displayName}</span>
                 </div>
-                <Link
-                  className="public-mobile-static-link d-block"
-                  to="/profile"
-                  data-bs-dismiss="offcanvas"
-                >
+                <Link className="public-mobile-static-link d-block" to="/profile" onClick={closeMobileNav}>
                   Profile
                 </Link>
                 <Link
                   className="public-mobile-static-link d-block"
                   to="/profile?tab=queries"
-                  data-bs-dismiss="offcanvas"
+                  onClick={closeMobileNav}
                 >
                   Queries
                 </Link>
                 <button
                   type="button"
                   className="btn btn-link public-mobile-static-link d-block p-0 text-start"
-                  data-bs-dismiss="offcanvas"
                   onClick={() => {
+                    closeMobileNav();
                     logout();
                     navigate("/");
                   }}
@@ -641,14 +629,10 @@ export default function PublicSiteHeader() {
               </>
             ) : (
               <>
-                <Link className="public-mobile-static-link d-block" to="/login" data-bs-dismiss="offcanvas">
+                <Link className="public-mobile-static-link d-block" to="/login" onClick={closeMobileNav}>
                   Sign in
                 </Link>
-                <Link
-                  className="public-mobile-static-link d-block"
-                  to="/register"
-                  data-bs-dismiss="offcanvas"
-                >
+                <Link className="public-mobile-static-link d-block" to="/register" onClick={closeMobileNav}>
                   Sign up
                 </Link>
               </>
