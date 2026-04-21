@@ -3,7 +3,7 @@ import PublicSiteFooter from "./PublicSiteFooter.jsx";
 
 const STORY_HERO_IMAGE = "/assets/images/sand24-story-hero.png";
 const FOUNDER_IMAGE = "/assets/images/sand24-founder-bhanu.png";
-const MOUNTAIN_MEADOW_IMAGE = "/assets/images/sand24-story-mountain-meadow.png";
+const STORY_INSPIRATION_IMAGE = "/assets/images/sand24-story-inspiration-dye-bath.png";
 const ELEGANCE_FABRIC_IMAGE = "/assets/images/sand24-story-elegance-fabric.png";
 
 export default function Sand24StoryPage() {
@@ -38,23 +38,16 @@ export default function Sand24StoryPage() {
           aria-labelledby="sand24-story-founder-heading"
         >
           <div className="website-story-founder__grid">
-            <div className="website-story-founder__copy">
+            <div className="website-story-founder__copy website-story-founder__copy--lead">
               <h2 id="sand24-story-founder-heading" className="website-story-founder__title">
-              Hi, I’m Bhanu, the proud founder and creative force behind SAND24.
+                Hi, I’m Bhanu, the proud founder and creative force behind SAND24.
               </h2>
               <p className="website-story-founder__subtitle">Welcome to SAND24—where fashion feels like home.</p>
-             
               <p className="website-story-founder__para">
-              With over 9 years of experience in Fashion Design, I’ve always been driven by a desire to create something meaningful—clothing that not only looks beautiful but feels like you.
+                Bhanu is a fashion designer driven by a deep commitment to sustainability, craftsmanship, and innovation. A graduate of INIFD Hyderabad (Master’s, 2016), Bhanu’s journey in design has been shaped by a strong academic foundation combined with a passion for exploring nature-led practices.
               </p>
               <p className="website-story-founder__para mb-0">
-              SAND24 was born from the idea of blending elegance with ease, where every piece is a reminder to slow down, breathe, and reconnect with yourself and with nature.
-              </p>
-              <p className="website-story-founder__para mb-0">
-              I believe fashion should be more than just style—it should be a feeling, an expression of presence, calm, and individuality. That’s why each design at SAND24 reflects my love for craftsmanship, innovation, and wearable art.
-              </p>
-              <p className="website-story-founder__para mb-0">
-              When I’m not immersed in fabric and form, you’ll find me sketching new ideas, experimenting with textures, or traveling in search of inspiration.
+                From 2016 to 2020, Bhanu dedicated extensive research to the art and science of natural colour extraction—reviving age-old dyeing techniques while reimagining them for contemporary fashion. This period of exploration laid the groundwork for a design philosophy rooted in environmental consciousness, authenticity, and mindful creation.
               </p>
             </div>
             <div className="website-story-founder__visual">
@@ -72,6 +65,14 @@ export default function Sand24StoryPage() {
                 </div>
               </div>
             </div>
+            <div className="website-story-founder__continuation">
+              <p className="website-story-founder__para">
+                This vision came to life with the launch of the brand <em>Sand24</em>—a label that celebrates the beauty of nature through textiles. Every piece reflects a harmonious blend of organic processes and modern aesthetics, where colors are carefully extracted from natural sources and transformed into wearable art. The brand stands for slow fashion, ethical practices, and a return to the roots of design.
+              </p>
+              <p className="website-story-founder__para mb-0">
+                Bhanu’s work is not just about clothing—it is about storytelling through fabric, preserving traditional knowledge, and creating a meaningful connection between nature and design. With <em>Sand24</em>, Bhanu continues to push boundaries, offering collections that are timeless, sustainable, and deeply personal.
+              </p>
+            </div>
           </div>
         </section>
 
@@ -84,34 +85,28 @@ export default function Sand24StoryPage() {
               <div className="website-story-inspiration__visual">
                 <div className="website-story-inspiration__frame">
                   <img
-                    src={MOUNTAIN_MEADOW_IMAGE}
-                    alt="Handspun handwoven fabrics: glue-resist dyeing and natural textures"
+                    src={STORY_INSPIRATION_IMAGE}
+                    alt="Natural dye bath: fabric soaking in a deep indigo-purple vat with a wooden stirring spoon"
                     className="website-story-inspiration__img"
                     loading="lazy"
                     decoding="async"
                   />
-                  <p className="website-story-inspiration__overlay website-story-inspiration__overlay--top">
-                    / The Inspiration
-                  </p>
-                  <p className="website-story-inspiration__overlay website-story-inspiration__overlay--bottom">
-                    Glue-resist fabric dyeing
-                  </p>
+                  
                 </div>
               </div>
               <div className="website-story-inspiration__copy">
                 <h2 id="sand24-story-inspiration-heading" className="website-story-inspiration__title">
-                  The Mountain Meadow Halter Neck Handspun Handwoven
+                The Art of slow fashion
                 </h2>
                 <p className="website-story-inspiration__tagline">
-                  Better for you Better for planet
+                A Conscious Choice 
+                
                 </p>
-                <p className="website-story-inspiration__para mb-0">
-                  The journey of Ananas Anam began while Carmen, a leathergoods expert, was
-                  consulting on the Philippines leather export industry in the 1990s. Shocked at
-                  the environmental impact of mass leather production and chemical tanning she
-                  realised this could not continue, but knew that PVC alternatives were not the
-                  solution. She was driven to research a sustainable alternative.
+                <p className="website-story-inspiration__para mb-0 my-4">
+                Slow fashion is an approach to clothing that focuses on quality, sustainability, and ethical production, encouraging mindful buying and long-lasting wear.
                 </p>
+                <p className="website-story-inspiration__para mb-0 my-4">
+                Slow fashion is about intention — choosing quality over quantity, and timeless design over passing trends. Each piece is thoughtfully created using sustainable materials and traditional techniques, supporting artisans and reducing environmental impact.                </p>
               </div>
             </div>
           </div>
@@ -125,19 +120,16 @@ export default function Sand24StoryPage() {
             <div className="website-story-elegance__grid">
               <div className="website-story-elegance__copy">
                 <h2 id="sand24-story-elegance-heading" className="website-story-elegance__title">
-                  Elegance in Eco-Consciousness
+                  Healing by Nature
                 </h2>
                 <p className="website-story-elegance__tagline">
-                  Better for you
-                  <br />
-                  Better for planet
+                 Healthy life cycle
                 </p>
-                <p className="website-story-elegance__para mb-0">
-                  Sand 24 designs are a harmonious fusion of style and sustainability. Our
-                  collections are carefully curated to offer chic, timeless pieces that seamlessly
-                  blend into any wardrobe. Whether it&apos;s a classic silk saree or a contemporary
-                  cotton dress, our minimalistic yet elegant silhouettes are designed to transcend
-                  trends, making them versatile choices for every occasion.
+                <p className="website-story-elegance__para mb-0 my-4">
+                Slow fashion focuses on natural fabrics, mindful production, and thoughtful design—making it better not just for the environment, but for your health too. By choosing breathable materials like handwoven cotton and khadi, it reduces skin irritation and allows your body to stay cool and comfortable.
+                </p>
+                <p className="website-story-elegance__para my-4">
+                Free from harsh chemicals and synthetic dyes, slow fashion garments are safer for long-term wear. Each piece is crafted with care, supporting artisans while promoting a healthier lifestyle. When you choose slow fashion, you choose clothing that feels as good as it looks—inside and out.
                 </p>
               </div>
               <div className="website-story-elegance__visual">

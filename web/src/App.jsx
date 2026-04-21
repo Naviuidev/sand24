@@ -55,7 +55,8 @@ const HERO_IMAGE_URL = heroImgUrl;
 const LINEN_COLLECTION_HERO_BG_URL = "/assets/images/linen-collection/hero-fullbleed.png";
 const CHANDERI_GIRL_SPOTLIGHT_IMAGE_URL = "/assets/images/chanderi-lehenga-featured.png";
 const CHANDERI_BOY_SPOTLIGHT_IMAGE_URL = "/assets/images/chanderi-spotlight-collage.png";
-const CHANDERI_SPOTLIGHT_TITLE = "Chanderi Lehenga Set | Hand-Block Printed";
+const CHANDERI_SPOTLIGHT_TITLE = "Soft as petals, made for little moments";
+const CHANDERI_BOY_SPOTLIGHT_TITLE = "Naturally Dyed Cotton Shirt | Breathable & Pure";
 
 const STUDIO_SUSTAINABILITY_CARDS = [
   {
@@ -114,32 +115,81 @@ const HOME_PILLAR_CARDS = [
   },
 ];
 
-const MOUNTAIN_MEADOW_SHOWCASE_CARDS = [
-  {
-    src: "/assets/images/mountain-meadow/kala-dresses.png",
-    label: "Kala cotton Dresses",
-    width: 263,
-    height: 382,
-  },
-  {
-    src: "/assets/images/mountain-meadow/kala-layers.png",
-    label: "Kala cotton Layers",
-    width: 263,
-    height: 382,
-  },
-  {
-    src: "/assets/images/mountain-meadow/kala-tops.png",
-    label: "Kala cotton Tops",
-    width: 263,
-    height: 382,
-  },
-  {
-    src: "/assets/images/mountain-meadow/shell-style.png",
-    label: "Shell Style Models",
-    width: 263,
-    height: 382,
-  },
-];
+function parseOptionalPositiveCategoryId(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/** Optional override when auto-detection fails: `VITE_HOME_DRESS_CATEGORY_ID` (numeric id from admin). */
+const ENV_HOME_DRESS_CATEGORY_ID = parseOptionalPositiveCategoryId(
+  import.meta.env.VITE_HOME_DRESS_CATEGORY_ID
+);
+
+function normalizeCategoryText(value) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/\u00a0/g, " ")
+    .trim();
+}
+
+/** Category row name looks like Dress / Dresses (For Her is matched separately). */
+function categoryNameImpliesDress(name) {
+  const s = normalizeCategoryText(name);
+  if (!s) return false;
+  if (/\b(dresses?)\b/i.test(s)) return true;
+  const compact = s.replace(/\s+/g, "");
+  return /^dress(es)?$/i.test(compact);
+}
+
+/** For Her → Dress section on home: match real admin category names. */
+function findForHerDressCategory(categories) {
+  const list = Array.isArray(categories) ? categories : [];
+  const candidates = list.filter((c) => {
+    const aud = String(c.audience || "").toLowerCase();
+    return aud === "for_her" && categoryNameImpliesDress(c.name);
+  });
+  if (candidates.length === 0) return null;
+  return [...candidates].sort(
+    (a, b) => (Number(b.productCount) || 0) - (Number(a.productCount) || 0)
+  )[0];
+}
+
+/** `categoryLabel` from API is like "For Her — Dress" (em dash). */
+function categoryLabelImpliesForHerDress(label) {
+  const t = normalizeCategoryText(label);
+  if (!t) return false;
+  const lower = t.toLowerCase();
+  if (!lower.includes("for her")) return false;
+  if (/\b(dresses?)\b/i.test(t)) return true;
+  const segments = t.split(/[—–\-]/).map((s) => s.trim().toLowerCase());
+  return segments.some((seg) => seg === "dress" || seg === "dresses" || /\b(dresses?)\b/.test(seg));
+}
+
+/**
+ * Vote by `categoryId` so we pick the label that most products use (handles odd first rows).
+ */
+function inferHerDressCategoryIdFromProducts(products) {
+  const list = Array.isArray(products) ? products : [];
+  const scores = new Map();
+  for (const p of list) {
+    if (!categoryLabelImpliesForHerDress(p.categoryLabel)) continue;
+    const id = parseOptionalPositiveCategoryId(p.categoryId);
+    if (id == null) continue;
+    scores.set(id, (scores.get(id) || 0) + 1);
+  }
+  if (scores.size === 0) return null;
+  return [...scores.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
+/** Prefer slot 1; otherwise first uploaded slot (matches “first image” in admin order). */
+function mountainMeadowProductImageSrc(p) {
+  if (!productHasImages(p)) return PRODUCT_IMAGE_PLACEHOLDER;
+  const slot =
+    Array.isArray(p.imageSlots) && p.imageSlots.includes(1)
+      ? 1
+      : productPrimaryImageSlot(p);
+  return productImageSrc(p.id, slot);
+}
 
 const ADMIN_USER = "Bhanu_Sand24";
 const ADMIN_PASSWORD = "Sand24_Bhanu";
@@ -1091,15 +1141,52 @@ function CustomerAddressesPage() {
 /** Public storefront home (`/`). Admin remains under `/admin/*`. */
 function WebsiteHome() {
   const [homeProducts, setHomeProducts] = useState([]);
+  /** Latest four products in For Her → Dress (by `created_at` from API). */
+  const [herDressShowcase, setHerDressShowcase] = useState([]);
+  const [herDressCategoryId, setHerDressCategoryId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/products`);
-        if (!cancelled) setHomeProducts(res.data?.data || []);
+        const [catSettled, prodSettled] = await Promise.allSettled([
+          axios.get(`${API_BASE_URL}/api/categories`),
+          axios.get(`${API_BASE_URL}/api/products`),
+        ]);
+        if (cancelled) return;
+
+        const categories =
+          catSettled.status === "fulfilled" ? catSettled.value.data?.data || [] : [];
+        const allProducts =
+          prodSettled.status === "fulfilled" ? prodSettled.value.data?.data || [] : [];
+
+        setHomeProducts(allProducts);
+
+        let dressCategoryId =
+          ENV_HOME_DRESS_CATEGORY_ID ?? findForHerDressCategory(categories)?.id ?? null;
+        if (dressCategoryId == null) {
+          dressCategoryId = inferHerDressCategoryIdFromProducts(allProducts);
+        }
+
+        if (dressCategoryId == null) {
+          setHerDressShowcase([]);
+          setHerDressCategoryId(null);
+          return;
+        }
+
+        setHerDressCategoryId(dressCategoryId);
+        const cid = Number(dressCategoryId);
+        const dressProducts = allProducts
+          .filter((p) => Number(p.categoryId) === cid)
+          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+          .slice(0, 4);
+        setHerDressShowcase(dressProducts);
       } catch {
-        if (!cancelled) setHomeProducts([]);
+        if (!cancelled) {
+          setHomeProducts([]);
+          setHerDressShowcase([]);
+          setHerDressCategoryId(null);
+        }
       }
     })();
     return () => {
@@ -1111,25 +1198,27 @@ function WebsiteHome() {
     <div className="website-home-page website-home-page--home">
       <PublicSiteHeader />
 
-      <section className="website-hero-strip" aria-label="Featured">
+      <section className="website-hero-strip py-5" aria-label="Featured">
         <div className="container">
           <div className="website-hero-banner">
-            <img
-              src={HERO_IMAGE_URL}
-              alt="Sand24 — New Fashion and Summer Idylls. Comfort, style, quality."
-              className="website-hero-fullwidth"
-              decoding="async"
-              fetchPriority="high"
-            />
+            <Link to="/products" className="website-hero-banner-link">
+              <img
+                src={HERO_IMAGE_URL}
+                alt="Sand24 — New Fashion and Summer Idylls. Comfort, style, quality."
+                className="website-hero-fullwidth"
+                decoding="async"
+                fetchPriority="high"
+              />
+            </Link>
           </div>
         </div>
       </section>
 
       <section
-        className="website-home-section website-intro-cta"
+        className="website-home-section website-intro-cta py-5"
         aria-labelledby="intro-cta-heading"
       >
-        <div className="website-intro-cta__inner">
+        <div className="website-intro-cta__inner ">
           <h2 id="intro-cta-heading" className="website-intro-cta__headline">
           Organic clothing where comfort<br/>meets quiet luxury
 
@@ -1145,13 +1234,13 @@ function WebsiteHome() {
       </section>
 
       <section
-        className="website-home-section website-home-products"
+        className="website-home-section website-home-products py-5"
         aria-labelledby="home-products-heading"
       >
         <h2 id="home-products-heading" className="visually-hidden">
           Featured products
         </h2>
-        <div className="container-fluid website-home-products__wrap px-3 px-lg-4">
+        <div className="container-fluid  website-home-products__wrap px-3 px-lg-4">
           {homeProducts.length === 0 ? (
             <p className="website-home-products__empty text-center mb-0">
               No products to show yet.
@@ -1209,10 +1298,10 @@ function WebsiteHome() {
       </section>
       <section
         id="story"
-        className="website-home-section website-planet-section"
+        className="website-home-section website-planet-section py-5"
         aria-labelledby="consider-clothing-heading"
       >
-        <div className="container">
+        <div className="container ">
           <div className="row justify-content-center">
             <div className="col-12 col-md-10 text-center website-planet-head">
               <h2 id="consider-clothing-heading" className="configText mb-0">
@@ -1288,10 +1377,10 @@ function WebsiteHome() {
       </section>
       {homeProducts[0] ? (
         <section
-          className="website-home-section website-featured-product"
+          className="website-home-section website-featured-product py-5"
           aria-labelledby="featured-product-heading"
         >
-          <div className="container">
+          <div className="container ">
             <div className="row align-items-center gy-4 website-featured-product__row">
               <div className="col-12 col-md-8 col-lg-8 website-featured-product__visual-col">
                 <div className="website-featured-product__visual my-2">
@@ -1396,40 +1485,54 @@ function WebsiteHome() {
         </section>
       ) : null}
       <section
-        className="website-home-section website-mountain-meadow"
+        className="website-home-section website-mountain-meadow py-5"
         aria-labelledby="mountain-meadow-heading"
       >
-        <div className="container website-mountain-meadow__inner">
+        <div className="container website-mountain-meadow__inner ">
           <h2 id="mountain-meadow-heading" className="website-mountain-meadow__title">
-            The Mountain Meadow Halter Neck Handspun Handwoven Organic Cotton Top
+          "A story of earth, in every thread"<br/>"Soft on you. Gentle on the earth."
           </h2>
           <p className="website-mountain-meadow__tagline">Better for you Better for planet</p>
-          <ul className="website-mountain-meadow__grid list-unstyled mb-0">
-            {MOUNTAIN_MEADOW_SHOWCASE_CARDS.map((card) => (
-              <li key={card.label} className="website-mountain-meadow__cell">
-                <a
-                  href="#home-products-heading"
-                  className="website-mountain-meadow__card"
-                  onClick={(e) => e.preventDefault()}
-                >
-                  <span className="website-mountain-meadow__frame">
-                    <img
-                      src={card.src}
-                      alt=""
-                      className="website-mountain-meadow__img"
-                      width={card.width}
-                      height={card.height}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </span>
-                  <span className="website-mountain-meadow__label">{card.label}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
+          {herDressShowcase.length > 0 ? (
+            <ul className="website-mountain-meadow__grid list-unstyled mb-0">
+              {herDressShowcase.map((p) => (
+                <li key={p.id} className="website-mountain-meadow__cell">
+                  <Link to={`/products/${p.id}`} className="website-mountain-meadow__card">
+                    <span className="website-mountain-meadow__frame">
+                      <img
+                        src={mountainMeadowProductImageSrc(p)}
+                        alt={p.title}
+                        className="website-mountain-meadow__img"
+                        width={263}
+                        height={382}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                        }}
+                      />
+                    </span>
+                    <span className="website-mountain-meadow__label">{p.title}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="website-mountain-meadow__empty mb-0">
+              {herDressCategoryId != null
+                ? "Dress styles will appear here soon."
+                : "Browse all products to explore our collections."}
+            </p>
+          )}
           <div className="website-mountain-meadow__cta">
-            <Link to="/journal" className="website-intro-cta__btn">
+            <Link
+              to={
+                herDressCategoryId != null
+                  ? `/products?category=${herDressCategoryId}`
+                  : "/products"
+              }
+              className="website-intro-cta__btn"
+            >
               View More
               <span className="website-intro-cta__btn-arrow" aria-hidden>
                 →
@@ -1439,10 +1542,10 @@ function WebsiteHome() {
         </div>
       </section>
       <section
-        className="website-home-section website-featured-product website-featured-product--chanderi website-featured-product--chanderi-girl"
+        className="website-home-section website-featured-product py-5 website-featured-product--chanderi website-featured-product--chanderi-girl"
         aria-labelledby="chanderi-girl-spotlight-heading"
       >
-        <div className="container position-relative">
+        <div className="container position-relative ">
           <div className="row align-items-center gx-3 gx-lg-4 gy-4">
             <div className="col-12 col-md-5 col-lg-5 website-featured-product__copy website-featured-product--chanderi__copy">
               <div className="my-2">
@@ -1478,49 +1581,10 @@ function WebsiteHome() {
           </div>
         </div>
       </section>
-      <section
-        className="website-home-section website-featured-product website-featured-product--chanderi website-featured-product--chanderi-boy"
-        aria-labelledby="chanderi-boy-spotlight-heading"
-      >
-        <div className="container position-relative">
-          <div className="row align-items-center gx-3 gx-lg-4 gy-4">
-            <div className="col-12 col-md-5 col-lg-5 website-featured-product__copy website-featured-product--chanderi__copy">
-              <div className="my-2">
-                <h2 id="chanderi-boy-spotlight-heading" className="website-featured-product__title">
-                  {CHANDERI_SPOTLIGHT_TITLE}
-                </h2>
-                <p className="website-featured-product__tagline">
-                  Better for you
-                  <br />
-                  Better for planet
-                </p>
-                <Link to="/products" className="website-featured-product__btn">
-                  View More
-                  <span className="website-featured-product__btn-arrow" aria-hidden>
-                    →
-                  </span>
-                </Link>
-              </div>
-            </div>
-            <div className="col-12 col-md-7 col-lg-7 website-featured-product__visual-col website-featured-product--chanderi__visual">
-              <div className="website-featured-product__visual my-2">
-                <img
-                  src={CHANDERI_BOY_SPOTLIGHT_IMAGE_URL}
-                  alt={CHANDERI_SPOTLIGHT_TITLE}
-                  className="img-fluid w-100 website-featured-product__collage website-featured-product--chanderi__collage"
-                  width={772}
-                  height={707}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+     
       <section
         id="sustainability"
-        className="website-home-section website-studio-sustain"
+        className="website-home-section py-5 website-studio-sustain"
         aria-labelledby="sustainability-heading"
       >
         <h2 id="sustainability-heading" className="visually-hidden">
@@ -1558,6 +1622,46 @@ function WebsiteHome() {
         </div>
       </section>
       <section
+        className="website-home-section py-5 website-featured-product website-featured-product--chanderi website-featured-product--chanderi-boy"
+        aria-labelledby="chanderi-boy-spotlight-heading"
+      >
+        <div className="container position-relative ">
+          <div className="row align-items-center gx-3 gx-lg-4 gy-4">
+            <div className="col-12 col-md-5 col-lg-5 website-featured-product__copy website-featured-product--chanderi__copy">
+              <div className="my-2">
+                <h2 id="chanderi-boy-spotlight-heading" className="website-featured-product__title">
+                  {CHANDERI_BOY_SPOTLIGHT_TITLE}
+                </h2>
+                <p className="website-featured-product__tagline">
+                  Soft on skin
+                  <br />
+                  Kind to earth
+                </p>
+                <Link to="/products" className="website-featured-product__btn">
+                  View More
+                  <span className="website-featured-product__btn-arrow" aria-hidden>
+                    →
+                  </span>
+                </Link>
+              </div>
+            </div>
+            <div className="col-12 col-md-7 col-lg-7 website-featured-product__visual-col website-featured-product--chanderi__visual">
+              <div className="website-featured-product__visual my-2">
+                <img
+                  src={CHANDERI_BOY_SPOTLIGHT_IMAGE_URL}
+                  alt={CHANDERI_BOY_SPOTLIGHT_TITLE}
+                  className="img-fluid w-100 website-featured-product__collage website-featured-product--chanderi__collage"
+                  width={772}
+                  height={707}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section
         id="new-collection"
         className="website-linen-collection-hero"
         aria-labelledby="linen-collection-heading"
@@ -1571,11 +1675,8 @@ function WebsiteHome() {
         <div className="container-fluid website-linen-collection-hero__inner px-3 px-lg-4 px-xl-5">
           <div className="website-linen-collection-hero__copy">
             <h2 id="linen-collection-heading" className="website-linen-collection-hero__title">
-              Where fashion meets nature,
-              <br />
-              <span className="website-linen-collection-hero__title-sub">
-                crafted with organic orange peel and love.
-              </span>
+            “Naturally dyed in indigo and turmeric—pure, breathable, and thoughtfully crafted for everyday elegance.”
+             
             </h2>
             <p className="website-linen-collection-hero__tagline">
               From Nature&apos;s Peel to sand24&apos;s Perfection.
@@ -1590,13 +1691,13 @@ function WebsiteHome() {
         </div>
       </section>
       <section
-        className="website-home-section website-pillar-trio"
+        className="website-home-section website-pillar-trio website-home-page__pre-footer-band py-5"
         aria-labelledby="pillar-trio-heading"
       >
         <h2 id="pillar-trio-heading" className="visually-hidden">
           Explore prints, craft, and our vision
         </h2>
-        <div className="container website-pillar-trio__inner">
+        <div className="container website-pillar-trio__inner ">
           <div className="row g-4 g-lg-5 justify-content-center website-pillar-trio__row">
             {HOME_PILLAR_CARDS.map((card) => (
               <div key={card.key} className="col-12 col-md-6 col-lg-4">

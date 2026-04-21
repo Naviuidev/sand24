@@ -1,9 +1,13 @@
 import PublicSiteHeader from "./PublicSiteHeader.jsx";
 import PublicSiteFooter from "./PublicSiteFooter.jsx";
 
+const SUSTAINABILITY_KHADI_PRODUCT_IMAGE = "/sustainability-product-khadi-weaving.png";
+const SUSTAINABILITY_KHADI_PRODUCT_URL = "https://sand24.in/products/20";
+const SUSTAINABILITY_BLOOM_MARIGOLD_IMAGE = "/sustainability-bloom-marigold-dress.png";
+
 export default function SustainabilityPage() {
   return (
-    <div className="website-home-page">
+    <div className="website-home-page website-home-page--sustainability">
       <PublicSiteHeader />
 
       <main className="website-sustainability-main">
@@ -17,15 +21,9 @@ export default function SustainabilityPage() {
                 Sustainability
               </h1>
               <h2 id="sustainability-subheading" className="website-sustainability-hero__subtitle">
-                We are glad to partner with Assam State Rural Livelihood Mission (ASRLM) for booting our
-                sustainability initiatives. ASRLM is a mission by the state Government of Assam (INDIA).
+                “Rooted in tradition and thoughtfully handcrafted in the heritage village of Pochampally, near
+                Hyderabad, India—where every piece reflects timeless craftsmanship.”
               </h2>
-              <p className="website-sustainability-hero__body">
-                Through the empowerment of rural women Self Help Groups (SHGs). ASRLM aims to improve the
-                economic status and quality of life of rural communities by promoting sustainable
-                livelihoods. This includes activities like skill development, capacity building, and
-                providing access to resources and markets for socio-economic growth.
-              </p>
             </div>
           </div>
         </section>
@@ -64,26 +62,30 @@ export default function SustainabilityPage() {
 
         <section
           className="website-sustainability-planet"
-          aria-labelledby="sustainability-planet-heading"
+          aria-labelledby="sustainability-bloom-marigold-heading"
         >
           <div className="container">
             <div className="row align-items-center g-4 g-lg-5">
               <div className="col-12 col-lg-6">
-                <h2 id="sustainability-planet-heading" className="website-sustainability-planet__title">
-                  Planet - Reduced Carbon Footprint
+                <h2 id="sustainability-bloom-marigold-heading" className="website-sustainability-planet__title">
+                  Bloom – Marigold Dyed Elegance
                 </h2>
                 <p className="website-sustainability-planet__body">
-                  At Sand 24, we champion handloom manufacturing for its eco-conscious benefits. Studies show
-                  that handloom production consumes significantly less energy, with a 2018 report by the Indian
-                  Ministry of Textiles indicating a 50% reduction in carbon emissions compared to mechanized
-                  processes.
+                  Dyed with natural marigold petals, this flowy dress carries warm, sun-kissed hues inspired by
+                  nature. Its soft, airy silhouette drapes effortlessly, creating a sense of ease and movement
+                  with every step.
+                </p>
+                <p className="website-sustainability-planet__body">
+                  Delicate shell-detailed straps add a subtle handcrafted touch, blending earthy textures with a
+                  hint of coastal charm. Light, graceful, and thoughtfully made — a piece designed for slow,
+                  beautiful moments.
                 </p>
               </div>
               <div className="col-12 col-lg-6">
                 <div className="website-sustainability-planet__visual">
                   <img
-                    src="/sustainability-planet-vanam.png"
-                    alt="Vanam outfit: handloom details and craft annotations"
+                    src={SUSTAINABILITY_BLOOM_MARIGOLD_IMAGE}
+                    alt="Marigold-dyed yellow floral dress in a garden setting, with detail callouts for shell straps, sleeveless comfort, hand-gathered pleats, and side pockets"
                     className="website-sustainability-planet__graphic"
                     loading="lazy"
                     decoding="async"
@@ -104,8 +106,8 @@ export default function SustainabilityPage() {
                 <div className="website-sustainability-product__visual">
                   <div className="website-sustainability-product__frame">
                     <img
-                      src="/sustainability-product-handwoven.png"
-                      alt="Hand-embroidered Sand 24 outfit in an artisan setting"
+                      src={SUSTAINABILITY_KHADI_PRODUCT_IMAGE}
+                      alt="Woman in a pinstriped cream khadi dress at a handloom weaving workshop"
                       className="website-sustainability-product__photo"
                       loading="lazy"
                       decoding="async"
@@ -115,14 +117,26 @@ export default function SustainabilityPage() {
               </div>
               <div className="col-12 col-lg-6">
                 <h2 id="sustainability-product-heading" className="website-sustainability-product__title">
-                  Product - Sustainably Handwoven
+                Product – Handwoven Khadi
                 </h2>
-                <p className="website-sustainability-product__body">
-                  Sand 24 products epitomize ethical and sustainable fashion. Our commitment extends from
-                  sourcing materials ethically, supporting local artisans, to minimizing environmental impact
-                  through eco-friendly practices. Join us in making a positive difference, one conscious choice
-                  at a time.
+                <p className="website-sustainability-product__body my-4">
+                  Rooted in tradition, this piece is crafted from handspun khadi — a fabric that breathes with
+                  simplicity and purpose. Each thread is woven with care, celebrating the artistry of skilled
+                  artisans and the beauty of slow fashion.
                 </p>
+                <p className="website-sustainability-product__body my-4">
+                  Light, airy, and naturally textured, khadi offers comfort while carrying a story of heritage
+                  and mindful making. Designed to move with ease, this garment reflects timeless craftsmanship
+                  and conscious living.
+                </p>
+                <div className="website-sustainability-product__actions">
+                  <a href={SUSTAINABILITY_KHADI_PRODUCT_URL} className="website-featured-product__btn">
+                    View Product
+                    <span className="website-featured-product__btn-arrow" aria-hidden>
+                      →
+                    </span>
+                  </a>
+                </div>
               </div>
             </div>
           </div>

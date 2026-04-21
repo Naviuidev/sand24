@@ -153,7 +153,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="website-home-page">
+    <div className="website-home-page website-home-page--products">
       <PublicSiteHeader />
 
       <section className="website-products-hero" aria-label="Products">
@@ -174,7 +174,10 @@ export default function ProductsPage() {
         </div>
       </section>
 
-      <section className="website-home-section website-products-catalog" aria-labelledby="products-catalog-heading">
+      <section
+        className="website-home-section website-products-catalog website-home-page__pre-footer-band"
+        aria-labelledby="products-catalog-heading"
+      >
         <div className="container-fluid website-products-catalog__wrap px-3 px-lg-4">
           <h2
             id="products-catalog-heading"

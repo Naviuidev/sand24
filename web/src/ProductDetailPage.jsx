@@ -180,7 +180,7 @@ export default function ProductDetailPage() {
 
   if (loadError && !product) {
     return (
-      <div className="website-home-page">
+      <div className="website-home-page website-home-page--product-detail">
         <PublicSiteHeader />
         <main className="website-product-detail">
           <div className="website-product-detail__column-frame container-fluid py-5">
@@ -201,7 +201,7 @@ export default function ProductDetailPage() {
 
   if (!product) {
     return (
-      <div className="website-home-page">
+      <div className="website-home-page website-home-page--product-detail">
         <PublicSiteHeader />
         <main className="website-product-detail">
           <div className="website-product-detail__column-frame container-fluid py-5 text-center text-muted">
@@ -313,7 +313,7 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <div className="website-home-page">
+    <div className="website-home-page website-home-page--product-detail">
       <PublicSiteHeader />
 
       <main className="website-product-detail">
@@ -579,7 +579,10 @@ export default function ProductDetailPage() {
         </div>
 
         {related.length > 0 ? (
-          <section className="website-home-section website-product-detail__related" aria-labelledby="related-heading">
+          <section
+            className="website-home-section website-product-detail__related website-home-page__pre-footer-band"
+            aria-labelledby="related-heading"
+          >
             <div className="website-product-detail__column-frame container-fluid px-3 px-lg-4">
               <h2 id="related-heading" className="website-products-catalog__heading text-center mb-4">
                 Related products
@@ -641,7 +644,7 @@ export default function ProductDetailPage() {
             </div>
           </section>
         ) : (
-          <section className="website-home-section website-product-detail__related">
+          <section className="website-home-section website-product-detail__related website-home-page__pre-footer-band">
             <div className="website-product-detail__column-frame container-fluid px-3 px-lg-4 pb-5">
               <div className="website-product-detail__brand-strip text-center">
                 <p className="website-intro-cta__tagline website-product-detail__brand-script mb-2">
