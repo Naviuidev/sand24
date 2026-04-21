@@ -1246,7 +1246,7 @@ function WebsiteHome() {
               No products to show yet.
             </p>
           ) : (
-            <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4 g-lg-4 website-home-products__grid">
+            <div className="row row-cols-2 row-cols-lg-4 g-3 g-lg-4 website-home-products__grid">
               {homeProducts.map((p) => (
                 <div key={p.id} className="col">
                   <article className="website-product-card">

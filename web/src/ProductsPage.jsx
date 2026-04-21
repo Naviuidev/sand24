@@ -263,7 +263,7 @@ export default function ProductsPage() {
               {filteredSorted.length === 0 && !loadError ? (
                 <p className="website-home-products__empty text-center mb-0">No products match these filters.</p>
               ) : (
-                <div className="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-4 website-home-products__grid">
+                <div className="row row-cols-2 row-cols-xl-4 g-3 g-lg-4 website-home-products__grid">
                   {filteredSorted.map((p) => (
                     <div key={p.id} className="col">
                       <article className="website-product-card">

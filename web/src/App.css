@@ -2123,6 +2123,112 @@ a.public-header-icon {
   color: #222;
 }
 
+/* Related + catalog: 2-column mobile grid — floating cards on PDP */
+.website-product-detail__related-grid {
+  --bs-gutter-x: 0.75rem;
+  --bs-gutter-y: 0.75rem;
+}
+
+@media (min-width: 992px) {
+  .website-product-detail__related-grid {
+    --bs-gutter-x: 1.25rem;
+    --bs-gutter-y: 1.5rem;
+  }
+}
+
+.website-product-card--related {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  padding: 0.65rem 0.75rem 0.85rem;
+  text-align: left;
+}
+
+.website-product-card__media-wrap {
+  position: relative;
+  margin-bottom: 0.5rem;
+}
+
+.website-product-card--related .website-product-card__media {
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.website-product-card--related .website-product-card__img {
+  aspect-ratio: 1 / 1.12;
+}
+
+.website-product-card__wish-btn {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: #7c3aed;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.website-product-card__wish-btn:hover:not(:disabled) {
+  color: #6d28d9;
+  transform: scale(1.06);
+}
+
+.website-product-card__wish-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.website-product-card__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.website-product-card__title--related {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: clamp(0.68rem, 2.8vw, 0.8125rem);
+  line-height: 1.3;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+
+.website-product-card__meta-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #b45309;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.website-product-card__prices--related {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+}
+
+.website-product-card__prices--related .website-product-card__price--final {
+  font-size: clamp(0.78rem, 3vw, 0.9rem);
+}
+
 /* —— Sustainability page (/sustainability) — inherits site-wide gold floral backdrop —— */
 .website-sustainability-main {
   position: relative;
@@ -5650,6 +5756,22 @@ button.public-dropdown-link.public-account-dropdown-signout {
 .website-cart-page__price {
   font-family: "Bellota", system-ui, sans-serif;
   font-weight: 600;
+}
+
+.website-cart-page__actions {
+  border-top-color: rgba(42, 42, 42, 0.12);
+}
+
+.website-cart-page__back-products {
+  color: #56694b;
+  font-weight: 600;
+  text-decoration: none;
+  align-self: center;
+}
+
+.website-cart-page__back-products:hover {
+  color: #3d4d38;
+  text-decoration: underline;
 }
 
 .website-product-detail__specs-section--right {

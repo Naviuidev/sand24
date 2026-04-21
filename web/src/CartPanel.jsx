@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { API_BASE_URL } from "./config.js";
 import { useAuth } from "./AuthContext.jsx";
@@ -10,6 +10,7 @@ import { PRODUCT_IMAGE_PLACEHOLDER, formatRupeeInr, productImageSrc } from "./pr
  * Cart line list (shared by /cart and profile tab). Requires authenticated user.
  */
 export default function CartPanel({ variant = "page" }) {
+  const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { removeCartItem, refresh } = useShop();
   const [items, setItems] = useState([]);
@@ -57,6 +58,35 @@ export default function CartPanel({ variant = "page" }) {
 
   const titleClass =
     variant === "profile" ? "customer-profile-section__title mb-3" : "website-cart-page__title mb-4";
+
+  const checkoutPayload = useMemo(() => {
+    if (!items.length) return { lines: [], orderTotal: 0 };
+    const lines = items.map((line) => {
+      const unit = Number(line.finalPrice) || 0;
+      const qty = Number(line.quantity) || 0;
+      return {
+        cartItemId: line.id,
+        productId: line.productId,
+        title: line.title,
+        quantity: qty,
+        sizeLabel: line.sizeLabel || "",
+        unitPrice: unit,
+        lineTotal: unit * qty,
+      };
+    });
+    const orderTotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
+    return { lines, orderTotal };
+  }, [items]);
+
+  function goToCheckout() {
+    if (!checkoutPayload.lines.length) return;
+    navigate("/checkout", {
+      state: {
+        lines: checkoutPayload.lines,
+        orderTotal: checkoutPayload.orderTotal,
+      },
+    });
+  }
 
   return (
     <div className={variant === "profile" ? "customer-profile-embed customer-profile-embed--cart" : undefined}>
@@ -118,6 +148,20 @@ export default function CartPanel({ variant = "page" }) {
           ))}
         </ul>
       )}
+      {items.length > 0 && !loadError ? (
+        <div className="website-cart-page__actions mt-4 pt-3 pt-lg-4 border-top d-flex flex-column justify-content-end flex-sm-row flex-wrap gap-3 align-items-stretch align-items-sm-center">
+          <button
+            type="button"
+            className="btn website-product-detail__btn-cart"
+            onClick={goToCheckout}
+          >
+            Buy now
+          </button>
+          <Link to="/products" className="website-cart-page__back-products">
+            Back to products
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }

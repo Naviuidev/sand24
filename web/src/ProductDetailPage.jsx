@@ -77,6 +77,7 @@ export default function ProductDetailPage() {
   const [sizeChartOpen, setSizeChartOpen] = useState(false);
   const [cartSuccess, setCartSuccess] = useState(false);
   const [wishSuccess, setWishSuccess] = useState(false);
+  const [relatedWishBusyId, setRelatedWishBusyId] = useState(null);
 
   useEffect(() => {
     setCartSuccess(false);
@@ -84,6 +85,7 @@ export default function ProductDetailPage() {
     setDuplicateCartOpen(false);
     setDuplicateWishlistOpen(false);
     setSizeChartOpen(false);
+    setRelatedWishBusyId(null);
   }, [id]);
 
   useEffect(() => {
@@ -140,7 +142,7 @@ export default function ProductDetailPage() {
         const others = all.filter((x) => x.id !== p.id);
         const sameCat = others.filter((x) => x.categoryLabel === label);
         const rest = others.filter((x) => x.categoryLabel !== label);
-        setRelated([...sameCat, ...rest].slice(0, 4));
+        setRelated([...sameCat, ...rest].slice(0, 8));
       } catch (e) {
         if (!cancelled) {
           if (e.response?.status === 404) {
@@ -309,6 +311,28 @@ export default function ProductDetailPage() {
       setShopMessage(e.response?.data?.message || "Could not update wishlist.");
     } finally {
       setWishSaving(false);
+    }
+  }
+
+  async function handleRelatedWishlist(relatedProductId) {
+    if (!user) {
+      setLoginPromptOpen(true);
+      return;
+    }
+    setRelatedWishBusyId(relatedProductId);
+    setShopMessage(null);
+    try {
+      const data = await addToWishlist(relatedProductId);
+      await refresh();
+      if (data?.alreadyHad) {
+        setDuplicateWishlistOpen(true);
+        return;
+      }
+      setShopMessage("Saved to wishlist.");
+    } catch (e) {
+      setShopMessage(e.response?.data?.message || "Could not update wishlist.");
+    } finally {
+      setRelatedWishBusyId(null);
     }
   }
 
@@ -587,32 +611,61 @@ export default function ProductDetailPage() {
               <h2 id="related-heading" className="website-products-catalog__heading text-center mb-4">
                 Related products
               </h2>
-              <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4 website-home-products__grid">
+              <div className="row row-cols-2 row-cols-lg-4 g-3 g-lg-4 website-home-products__grid website-product-detail__related-grid">
                 {related.map((p) => (
                   <div key={p.id} className="col">
-                    <article className="website-product-card">
-                      <Link to={`/products/${p.id}`} className="website-product-card__media">
-                        <img
-                          src={
-                            productHasImages(p)
-                              ? productImageSrc(p.id, productPrimaryImageSlot(p))
-                              : PRODUCT_IMAGE_PLACEHOLDER
-                          }
-                          alt={p.title}
-                          className="website-product-card__img"
-                          loading="lazy"
-                          decoding="async"
-                          onError={(e) => {
-                            e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
-                          }}
-                        />
-                      </Link>
-                      <h3 className="website-product-card__title">
-                        <Link to={`/products/${p.id}`} className="website-product-card__title-link">
-                          {p.title}
+                    <article className="website-product-card website-product-card--related d-flex flex-column h-100">
+                      <div className="website-product-card__media-wrap">
+                        <Link to={`/products/${p.id}`} className="website-product-card__media">
+                          <img
+                            src={
+                              productHasImages(p)
+                                ? productImageSrc(p.id, productPrimaryImageSlot(p))
+                                : PRODUCT_IMAGE_PLACEHOLDER
+                            }
+                            alt={p.title}
+                            className="website-product-card__img"
+                            loading="lazy"
+                            decoding="async"
+                            onError={(e) => {
+                              e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                            }}
+                          />
                         </Link>
-                      </h3>
-                      <div className="website-product-card__prices">
+                        <button
+                          type="button"
+                          className="website-product-card__wish-btn"
+                          aria-label={`Add ${p.title} to wishlist`}
+                          disabled={relatedWishBusyId === p.id}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void handleRelatedWishlist(p.id);
+                          }}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                            <path
+                              d="M12 21s-7-4.35-7-9.5a4.5 4.5 0 0 1 8.06-2.75A4.5 4.5 0 0 1 19 11.5C19 16.65 12 21 12 21z"
+                              stroke="currentColor"
+                              strokeWidth="1.45"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="website-product-card__title-row">
+                        <h3 className="website-product-card__title website-product-card__title--related mb-0">
+                          <Link to={`/products/${p.id}`} className="website-product-card__title-link">
+                            {p.title}
+                          </Link>
+                        </h3>
+                        {p.offerPercent > 0 && p.originalPrice > 0 && p.originalPrice > p.finalPrice ? (
+                          <span className="website-product-card__meta-badge" aria-hidden>
+                            −{p.offerPercent}%
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="website-product-card__prices website-product-card__prices--related mt-auto">
                         {p.offerPercent > 0 && p.originalPrice > 0 && p.originalPrice > p.finalPrice ? (
                           <>
                             <span className="website-product-card__price website-product-card__price--original">
