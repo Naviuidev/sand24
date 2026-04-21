@@ -4,7 +4,7 @@ import axios from "axios";
 import { API_BASE_URL } from "./config.js";
 import { useAuth } from "./AuthContext.jsx";
 import { useShop } from "./ShopContext.jsx";
-import { formatRupeeInr, productImageSrc } from "./productUtils.js";
+import { PRODUCT_IMAGE_PLACEHOLDER, formatRupeeInr, productImageSrc } from "./productUtils.js";
 
 /**
  * Wishlist grid (shared by /wishlist and profile tab). Requires authenticated user.
@@ -85,6 +85,9 @@ export default function WishlistPanel({ variant = "page" }) {
                 <Link to={`/products/${line.productId}`} className="website-product-card__media">
                   <img
                     src={productImageSrc(line.productId, 1)}
+                    onError={(e) => {
+                      e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                    }}
                     alt={line.title}
                     className="website-product-card__img"
                     loading="lazy"

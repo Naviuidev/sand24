@@ -6,9 +6,14 @@ import PublicSiteFooter from "./PublicSiteFooter.jsx";
 import { API_BASE_URL } from "./config.js";
 import { useAuth } from "./AuthContext.jsx";
 import { useShop } from "./ShopContext.jsx";
-import { formatRsDecimals, formatRupeeInr, productImageSrc } from "./productUtils.js";
-
-const SLOTS = [1, 2, 3, 4];
+import {
+  PRODUCT_IMAGE_PLACEHOLDER,
+  formatRsDecimals,
+  formatRupeeInr,
+  productHasImages,
+  productImageSrc,
+  productPrimaryImageSlot,
+} from "./productUtils.js";
 
 /** Hero image (yarn / fibre) — “Cotton” overlay; scales render below. */
 const FABRIC_HERO_SRC = "/assets/images/product-fabric-yarn-hero.png";
@@ -124,7 +129,8 @@ export default function ProductDetailPage() {
         }
         setProduct(p);
         setLoadError("");
-        setActiveSlot(1);
+        const slots = Array.isArray(p.imageSlots) && p.imageSlots.length > 0 ? p.imageSlots : [];
+        setActiveSlot(slots.length ? slots[0] : 1);
         const avail = Math.max(0, Number(p.quantityAvailable) || 0);
         setQuantity(avail > 0 ? 1 : 0);
         const sizes = Array.isArray(p.sizes) ? p.sizes : [];
@@ -150,6 +156,14 @@ export default function ProductDetailPage() {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    const slots =
+      Array.isArray(product.imageSlots) && product.imageSlots.length > 0 ? product.imageSlots : [];
+    if (slots.length === 0) return;
+    setActiveSlot((prev) => (slots.includes(prev) ? prev : slots[0]));
+  }, [product?.id, product?.imageSlots]);
 
   const detailBlocks = useMemo(() => {
     if (!product) return [];
@@ -200,6 +214,10 @@ export default function ProductDetailPage() {
   }
 
   const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const imageSlots =
+    Array.isArray(product.imageSlots) && product.imageSlots.length > 0 ? product.imageSlots : [];
+  const galleryEmpty = imageSlots.length === 0;
+  const gallerySingle = imageSlots.length === 1;
 
   const hasDiscount =
     product.offerPercent > 0 &&
@@ -318,33 +336,43 @@ export default function ProductDetailPage() {
 
           <div className="row g-4 g-xl-5 align-items-start website-product-detail__top">
             <div className="col-12 col-lg-7">
-              <div className="website-product-detail__gallery">
-                <div className="website-product-detail__thumbs" role="tablist" aria-label="Product images">
-                  {SLOTS.map((slot) => (
-                    <button
-                      key={slot}
-                      type="button"
-                      className={`website-product-detail__thumb${activeSlot === slot ? " is-active" : ""}`}
-                      onClick={() => setActiveSlot(slot)}
-                      aria-pressed={activeSlot === slot}
-                      aria-label={`Image ${slot}`}
-                    >
-                      <img
-                        src={productImageSrc(product.id, slot)}
-                        alt=""
-                        className="website-product-detail__thumb-img"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
-                </div>
+              <div
+                className={`website-product-detail__gallery${gallerySingle ? " website-product-detail__gallery--single" : ""}${galleryEmpty ? " website-product-detail__gallery--empty" : ""}`}
+              >
+                {!galleryEmpty ? (
+                  <div className="website-product-detail__thumbs" role="tablist" aria-label="Product images">
+                    {imageSlots.map((slot) => (
+                      <button
+                        key={slot}
+                        type="button"
+                        className={`website-product-detail__thumb${activeSlot === slot ? " is-active" : ""}`}
+                        onClick={() => setActiveSlot(slot)}
+                        aria-pressed={activeSlot === slot}
+                        aria-label={`Image ${slot}`}
+                      >
+                        <img
+                          src={productImageSrc(product.id, slot)}
+                          alt=""
+                          className="website-product-detail__thumb-img"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="website-product-detail__main">
-                  <img
-                    src={productImageSrc(product.id, activeSlot)}
-                    alt={product.title}
-                    className="website-product-detail__main-img"
-                    decoding="async"
-                  />
+                  {galleryEmpty ? (
+                    <div className="website-product-detail__placeholder" role="img" aria-label="No product photo">
+                      No image
+                    </div>
+                  ) : (
+                    <img
+                      src={productImageSrc(product.id, activeSlot)}
+                      alt={product.title}
+                      className="website-product-detail__main-img"
+                      decoding="async"
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -562,11 +590,18 @@ export default function ProductDetailPage() {
                     <article className="website-product-card">
                       <Link to={`/products/${p.id}`} className="website-product-card__media">
                         <img
-                          src={productImageSrc(p.id, 1)}
+                          src={
+                            productHasImages(p)
+                              ? productImageSrc(p.id, productPrimaryImageSlot(p))
+                              : PRODUCT_IMAGE_PLACEHOLDER
+                          }
                           alt={p.title}
                           className="website-product-card__img"
                           loading="lazy"
                           decoding="async"
+                          onError={(e) => {
+                            e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                          }}
                         />
                       </Link>
                       <h3 className="website-product-card__title">

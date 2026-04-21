@@ -3111,6 +3111,16 @@ function computeFinalPrice(originalPrice, offerPercent) {
   return Math.round((o * (100 - p)) / 100 * 100) / 100;
 }
 
+/** Which image slots 1–4 have data (from nullable mime columns). */
+function imageSlotsFromProductRow(row) {
+  const slots = [];
+  for (let i = 1; i <= 4; i++) {
+    const m = row[`image_${i}_mime`];
+    if (m != null && String(m).trim() !== "") slots.push(i);
+  }
+  return slots;
+}
+
 const productImageUpload = uploadProduct.fields([
   { name: "image1", maxCount: 1 },
   { name: "image2", maxCount: 1 },
@@ -3243,6 +3253,7 @@ app.get("/api/products", async (req, res) => {
 
     let sql = `SELECT p.id, p.title, p.original_price, p.offer_percent, p.final_price,
               p.quantity_available, p.created_at, p.category_id,
+              p.image_1_mime, p.image_2_mime, p.image_3_mime, p.image_4_mime,
               c.audience, c.name AS category_name
        FROM products p
        INNER JOIN categories c ON c.id = p.category_id`;
@@ -3264,17 +3275,22 @@ app.get("/api/products", async (req, res) => {
 
     const [rows] = await db.query(sql, params);
 
-    const data = rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      originalPrice: Number(row.original_price) || 0,
-      offerPercent: Number(row.offer_percent) || 0,
-      finalPrice: Number(row.final_price) || 0,
-      quantityAvailable: Number(row.quantity_available) || 0,
-      createdAt: row.created_at,
-      categoryId: Number(row.category_id) || 0,
-      categoryLabel: `${AUDIENCE_LABEL[row.audience] || row.audience} — ${row.category_name}`,
-    }));
+    const data = rows.map((row) => {
+      const imageSlots = imageSlotsFromProductRow(row);
+      return {
+        id: row.id,
+        title: row.title,
+        originalPrice: Number(row.original_price) || 0,
+        offerPercent: Number(row.offer_percent) || 0,
+        finalPrice: Number(row.final_price) || 0,
+        quantityAvailable: Number(row.quantity_available) || 0,
+        createdAt: row.created_at,
+        categoryId: Number(row.category_id) || 0,
+        categoryLabel: `${AUDIENCE_LABEL[row.audience] || row.audience} — ${row.category_name}`,
+        imageSlots,
+        primaryImageSlot: imageSlots[0] ?? null,
+      };
+    });
 
     res.json({ success: true, data });
   } catch (error) {
@@ -3311,6 +3327,7 @@ app.get("/api/products/:id", async (req, res) => {
               p.sizes_json, p.quantity_available, p.fabric, p.color, p.print_style, p.body_fit,
               p.features, p.neck_type, p.product_details, p.shipment_delivery, p.return_exchange,
               p.updated_at,
+              p.image_1_mime, p.image_2_mime, p.image_3_mime, p.image_4_mime,
               c.audience, c.name AS category_name
        FROM products p
        INNER JOIN categories c ON c.id = p.category_id
@@ -3331,6 +3348,8 @@ app.get("/api/products/:id", async (req, res) => {
     } catch {
       sizesArr = [];
     }
+
+    const imageSlots = imageSlotsFromProductRow(row);
 
     res.json({
       success: true,
@@ -3356,6 +3375,8 @@ app.get("/api/products/:id", async (req, res) => {
         updatedAt: row.updated_at
           ? new Date(row.updated_at).toISOString()
           : null,
+        imageSlots,
+        primaryImageSlot: imageSlots[0] ?? null,
       },
     });
   } catch (error) {
@@ -3375,14 +3396,6 @@ app.post("/api/products", productImageUpload, async (req, res) => {
     const img2 = files.image2?.[0];
     const img3 = files.image3?.[0];
     const img4 = files.image4?.[0];
-
-    if (!img1 || !img2 || !img3 || !img4) {
-      res.status(400).json({
-        success: false,
-        message: "All four product images are required.",
-      });
-      return;
-    }
 
     const parsed = parseProductFields(req);
     if (parsed.error) {
@@ -3432,14 +3445,14 @@ app.post("/api/products", productImageUpload, async (req, res) => {
           p.productDetails,
           p.shipmentDelivery,
           p.returnExchange,
-          uploadMime(img1),
-          img1.buffer,
-          uploadMime(img2),
-          img2.buffer,
-          uploadMime(img3),
-          img3.buffer,
-          uploadMime(img4),
-          img4.buffer,
+          img1 ? uploadMime(img1) : null,
+          img1 ? img1.buffer : null,
+          img2 ? uploadMime(img2) : null,
+          img2 ? img2.buffer : null,
+          img3 ? uploadMime(img3) : null,
+          img3 ? img3.buffer : null,
+          img4 ? uploadMime(img4) : null,
+          img4 ? img4.buffer : null,
         ]
       );
 
@@ -3495,7 +3508,7 @@ app.post("/api/products", productImageUpload, async (req, res) => {
         res.status(413).json({
           success: false,
           message:
-            "All four images are saved in one database query. Their combined size is larger than MySQL allows per packet (max_allowed_packet). Fix: raise the limit in MySQL, or use smaller/compressed photos. See backend/.env.example for SQL.",
+            "Product images are saved in one database query. Their combined size is larger than MySQL allows per packet (max_allowed_packet). Fix: raise the limit in MySQL, or use smaller/compressed photos. See backend/.env.example for SQL.",
           sqlMessage: sqlMsg,
         });
       }
@@ -3569,15 +3582,6 @@ app.put("/api/products/:id", productImageUpload, async (req, res) => {
       const d3 = img3 ? img3.buffer : prev.image_3_data;
       const m4 = img4 ? uploadMime(img4) : prev.image_4_mime;
       const d4 = img4 ? img4.buffer : prev.image_4_data;
-
-      if (!d1 || !d2 || !d3 || !d4) {
-        await connection.rollback();
-        res.status(400).json({
-          success: false,
-          message: "All four product images must exist; upload any missing slot.",
-        });
-        return;
-      }
 
       const sizesJson = JSON.stringify(p.sizes);
 
@@ -3678,7 +3682,7 @@ app.put("/api/products/:id", productImageUpload, async (req, res) => {
         res.status(413).json({
           success: false,
           message:
-            "All four images are saved in one database query. Their combined size is larger than MySQL allows per packet (max_allowed_packet). Fix: raise the limit in MySQL, or use smaller/compressed photos. See backend/.env.example for SQL.",
+            "Product images are saved in one database query. Their combined size is larger than MySQL allows per packet (max_allowed_packet). Fix: raise the limit in MySQL, or use smaller/compressed photos. See backend/.env.example for SQL.",
           sqlMessage: sqlMsg,
         });
       }

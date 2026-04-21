@@ -6,7 +6,7 @@ import PublicSiteFooter from "./PublicSiteFooter.jsx";
 import { API_BASE_URL } from "./config.js";
 import { useAuth } from "./AuthContext.jsx";
 import { INDIAN_STATES, districtsForState } from "./data/indiaStatesDistricts.js";
-import { formatRupeeInr, productImageSrc } from "./productUtils.js";
+import { PRODUCT_IMAGE_PLACEHOLDER, formatRupeeInr, productImageSrc } from "./productUtils.js";
 
 const emptyAddressForm = () => ({
   addressLine1: "",
@@ -472,6 +472,9 @@ export default function CheckoutPage() {
                     >
                       <img
                         src={productImageSrc(line.productId, 1)}
+                        onError={(e) => {
+                          e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                        }}
                         alt=""
                         className="website-checkout-page__line-thumb flex-shrink-0"
                         width={72}

@@ -4,7 +4,13 @@ import axios from "axios";
 import PublicSiteHeader from "./PublicSiteHeader.jsx";
 import PublicSiteFooter from "./PublicSiteFooter.jsx";
 import { API_BASE_URL } from "./config.js";
-import { formatRupeeInr, productImageSrc } from "./productUtils.js";
+import {
+  PRODUCT_IMAGE_PLACEHOLDER,
+  formatRupeeInr,
+  productHasImages,
+  productImageSrc,
+  productPrimaryImageSlot,
+} from "./productUtils.js";
 
 const PRODUCTS_HERO_BG = "/assets/images/products-hero-bg.png";
 
@@ -260,11 +266,18 @@ export default function ProductsPage() {
                       <article className="website-product-card">
                         <Link to={`/products/${p.id}`} className="website-product-card__media">
                           <img
-                            src={productImageSrc(p.id, 1)}
+                            src={
+                              productHasImages(p)
+                                ? productImageSrc(p.id, productPrimaryImageSlot(p))
+                                : PRODUCT_IMAGE_PLACEHOLDER
+                            }
                             alt={p.title}
                             className="website-product-card__img"
                             loading="lazy"
                             decoding="async"
+                            onError={(e) => {
+                              e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                            }}
                           />
                         </Link>
                         <h3 className="website-product-card__title">{p.title}</h3>

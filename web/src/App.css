@@ -5018,6 +5018,30 @@ button.public-dropdown-link.public-account-dropdown-signout {
   max-width: 100%;
 }
 
+.website-product-detail__gallery--single {
+  flex-direction: column;
+}
+
+.website-product-detail__gallery--single .website-product-detail__thumbs {
+  display: none;
+}
+
+.website-product-detail__gallery--empty .website-product-detail__thumbs {
+  display: none;
+}
+
+.website-product-detail__placeholder {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.06);
+  color: #666;
+  font-family: "Bellota", system-ui, sans-serif;
+  font-size: 0.95rem;
+}
+
 .website-product-detail__thumbs {
   display: flex;
   flex-direction: column;

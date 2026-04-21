@@ -6,7 +6,7 @@ import PublicSiteFooter from "./PublicSiteFooter.jsx";
 import { API_BASE_URL } from "./config.js";
 import { useAuth } from "./AuthContext.jsx";
 import { useShop } from "./ShopContext.jsx";
-import { formatRupeeInr, productImageSrc } from "./productUtils.js";
+import { PRODUCT_IMAGE_PLACEHOLDER, formatRupeeInr, productImageSrc } from "./productUtils.js";
 
 const BUY_NOW_STORAGE_KEY = "sand24-buyNow";
 
@@ -349,6 +349,9 @@ export default function BuyNowPage() {
                     <Link to={`/products/${line.productId}`} className="website-cart-page__thumb-link flex-shrink-0">
                       <img
                         src={productImageSrc(line.productId, 1)}
+                        onError={(e) => {
+                          e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                        }}
                         alt=""
                         className="website-cart-page__thumb"
                         width={88}
@@ -418,6 +421,9 @@ export default function BuyNowPage() {
               <Link to={`/products/${id}`} className="website-cart-page__thumb-link flex-shrink-0">
                 <img
                   src={productImageSrc(id, 1)}
+                  onError={(e) => {
+                    e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                  }}
                   alt=""
                   className="website-cart-page__thumb"
                   width={88}

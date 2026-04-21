@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import { API_BASE_URL } from "./config.js";
 import { useAuth } from "./AuthContext.jsx";
-import { formatRupeeInr, productImageSrc } from "./productUtils.js";
+import { PRODUCT_IMAGE_PLACEHOLDER, formatRupeeInr, productImageSrc } from "./productUtils.js";
 
 function parseLines(raw) {
   if (Array.isArray(raw)) return raw;
@@ -264,6 +264,9 @@ export default function ProfileOrdersPanel() {
                                   <Link to={`/products/${line.productId}`} className="customer-profile-order-table__thumb-link">
                                     <img
                                       src={productImageSrc(line.productId, 1)}
+                                      onError={(e) => {
+                                        e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                                      }}
                                       alt=""
                                       className="customer-profile-order-table__thumb rounded"
                                       width={40}

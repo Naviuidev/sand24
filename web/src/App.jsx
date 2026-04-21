@@ -14,7 +14,13 @@ import { useShop } from "./ShopContext.jsx";
 import PublicSiteHeader from "./PublicSiteHeader.jsx";
 import PublicSiteFooter from "./PublicSiteFooter.jsx";
 import { API_BASE_URL } from "./config.js";
-import { formatRupeeInr, productImageSrc } from "./productUtils.js";
+import {
+  PRODUCT_IMAGE_PLACEHOLDER,
+  formatRupeeInr,
+  productHasImages,
+  productImageSrc,
+  productPrimaryImageSlot,
+} from "./productUtils.js";
 import ProductsPage from "./ProductsPage.jsx";
 import Sand24StoryPage from "./Sand24StoryPage.jsx";
 import JournalPage from "./JournalPage.jsx";
@@ -43,7 +49,7 @@ import AdminOrderFulfillment from "./AdminOrderFulfillment.jsx";
 import AdminSupportQueriesPanel from "./AdminSupportQueriesPanel.jsx";
 import AdminContactPanel from "./AdminContactPanel.jsx";
 import "./App.css";
-import heroImgUrl from "./assets/heroImg.png";
+import heroImgUrl from "./assets/hero-home.png";
 
 const HERO_IMAGE_URL = heroImgUrl;
 const LINEN_COLLECTION_HERO_BG_URL = "/assets/images/linen-collection/hero-fullbleed.png";
@@ -1157,11 +1163,18 @@ function WebsiteHome() {
                   <article className="website-product-card">
                     <Link to={`/products/${p.id}`} className="website-product-card__media">
                       <img
-                        src={productImageSrc(p.id, 1)}
+                        src={
+                          productHasImages(p)
+                            ? productImageSrc(p.id, productPrimaryImageSlot(p))
+                            : PRODUCT_IMAGE_PLACEHOLDER
+                        }
                         alt={p.title}
                         className="website-product-card__img"
                         loading="lazy"
                         decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                        }}
                       />
                     </Link>
                     <h3 className="website-product-card__title">
@@ -1287,39 +1300,55 @@ function WebsiteHome() {
                     className="website-featured-product__gallery"
                     aria-label={`${homeProducts[0].title} — view product`}
                   >
-                    <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--main">
-                      <img
-                        src={productImageSrc(homeProducts[0].id, 1)}
-                        alt={homeProducts[0].title}
-                        className="website-featured-product__gallery-img"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </div>
-                    <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--top">
-                      <img
-                        src={productImageSrc(homeProducts[0].id, 2)}
-                        alt=""
-                        className="website-featured-product__gallery-img"
-                        loading="lazy"
-                        decoding="async"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    </div>
-                    <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--bottom">
-                      <img
-                        src={productImageSrc(homeProducts[0].id, 3)}
-                        alt=""
-                        className="website-featured-product__gallery-img"
-                        loading="lazy"
-                        decoding="async"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                      />
-                    </div>
+                    {(() => {
+                      const fp = homeProducts[0];
+                      const slots = Array.isArray(fp.imageSlots) ? fp.imageSlots : [];
+                      const s0 = slots[0];
+                      const s1 = slots[1];
+                      const s2 = slots[2];
+                      return (
+                        <>
+                          <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--main">
+                            <img
+                              src={
+                                s0
+                                  ? productImageSrc(fp.id, s0)
+                                  : PRODUCT_IMAGE_PLACEHOLDER
+                              }
+                              alt={fp.title}
+                              className="website-featured-product__gallery-img"
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => {
+                                e.currentTarget.src = PRODUCT_IMAGE_PLACEHOLDER;
+                              }}
+                            />
+                          </div>
+                          <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--top">
+                            {s1 ? (
+                              <img
+                                src={productImageSrc(fp.id, s1)}
+                                alt=""
+                                className="website-featured-product__gallery-img"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : null}
+                          </div>
+                          <div className="website-featured-product__gallery-cell website-featured-product__gallery-cell--bottom">
+                            {s2 ? (
+                              <img
+                                src={productImageSrc(fp.id, s2)}
+                                alt=""
+                                className="website-featured-product__gallery-img"
+                                loading="lazy"
+                                decoding="async"
+                              />
+                            ) : null}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </Link>
                 </div>
               </div>
@@ -2704,6 +2733,8 @@ function CostomiseBussinessPage() {
   const [returnExchange, setReturnExchange] = useState("");
   const [imageFiles, setImageFiles] = useState([null, null, null, null]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState([null, null, null, null]);
+  /** Server slots 1–4 that already have an image (edit mode). */
+  const [editingImageSlots, setEditingImageSlots] = useState([]);
   const [productSubmitting, setProductSubmitting] = useState(false);
   const [productMessage, setProductMessage] = useState("");
   const [productList, setProductList] = useState([]);
@@ -2892,6 +2923,7 @@ function CostomiseBussinessPage() {
     setShipmentDelivery("");
     setReturnExchange("");
     setImageFiles([null, null, null, null]);
+    setEditingImageSlots([]);
     setEditingProductUpdatedAt("");
   };
 
@@ -2931,6 +2963,7 @@ function CostomiseBussinessPage() {
       setShipmentDelivery(d.shipmentDelivery || "");
       setReturnExchange(d.returnExchange || "");
       setImageFiles([null, null, null, null]);
+      setEditingImageSlots(Array.isArray(d.imageSlots) ? d.imageSlots : []);
       setEditingProductUpdatedAt(d.updatedAt != null ? String(d.updatedAt) : "");
       setProductFormKey((k) => k + 1);
       setProductMessage("");
@@ -2975,13 +3008,15 @@ function CostomiseBussinessPage() {
   };
 
   const productImageSlotSrc = (index) => {
+    const slotNum = index + 1;
     if (imagePreviewUrls[index]) return imagePreviewUrls[index];
     if (editingProductId && !imageFiles[index]) {
+      if (!editingImageSlots.includes(slotNum)) return null;
       const v =
         editingProductUpdatedAt !== ""
           ? `?v=${encodeURIComponent(editingProductUpdatedAt)}`
           : "";
-      return `${API_BASE_URL}/api/products/${editingProductId}/images/${index + 1}/preview${v}`;
+      return `${API_BASE_URL}/api/products/${editingProductId}/images/${slotNum}/preview${v}`;
     }
     return null;
   };
@@ -3009,10 +3044,6 @@ function CostomiseBussinessPage() {
     setProductMessage("");
     const isEdit = Boolean(editingProductId);
 
-    if (!isEdit && imageFiles.some((f) => !f)) {
-      setProductMessage("Please upload all four images.");
-      return;
-    }
     if (selectedSizes.size === 0) {
       setProductMessage("Select at least one size.");
       return;
@@ -3050,10 +3081,9 @@ function CostomiseBussinessPage() {
         });
         await axios.put(`${API_BASE_URL}/api/products/${editingProductId}`, fd);
       } else {
-        fd.append("image1", imageFiles[0]);
-        fd.append("image2", imageFiles[1]);
-        fd.append("image3", imageFiles[2]);
-        fd.append("image4", imageFiles[3]);
+        imageFiles.forEach((f, i) => {
+          if (f) fd.append(`image${i + 1}`, f);
+        });
         await axios.post(`${API_BASE_URL}/api/products`, fd);
       }
 
@@ -3585,7 +3615,7 @@ function CostomiseBussinessPage() {
                 <div className="add-product-grid">
                   <div className="add-product-images">
                     <p className="home-preview-label mb-2">
-                      Product images ({editingProductId ? "replace any slot by uploading" : "4 required"})
+                      Product images (optional, up to four — add in order; detail page shows only uploaded photos)
                     </p>
                     <div className="product-image-slots">
                       {[0, 1, 2, 3].map((i) => (

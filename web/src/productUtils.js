@@ -16,3 +16,23 @@ export function formatRsDecimals(amount) {
 export function productImageSrc(productId, slot = 1) {
   return `${API_BASE_URL}/api/products/${productId}/images/${slot}/preview`;
 }
+
+/** Neutral placeholder when a product has no photo or slot is missing. */
+export const PRODUCT_IMAGE_PLACEHOLDER =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="500" viewBox="0 0 400 500"><rect fill="#eceae6" width="400" height="500"/><text x="200" y="252" text-anchor="middle" fill="#8a8580" font-family="system-ui,sans-serif" font-size="15">No image</text></svg>'
+  );
+
+/** First slot that has an image (`imageSlots` from API), or 1 if unknown. */
+export function productPrimaryImageSlot(product) {
+  if (product && Array.isArray(product.imageSlots) && product.imageSlots.length > 0) {
+    return product.imageSlots[0];
+  }
+  if (product?.primaryImageSlot != null) return product.primaryImageSlot;
+  return 1;
+}
+
+export function productHasImages(product) {
+  return Array.isArray(product?.imageSlots) && product.imageSlots.length > 0;
+}
