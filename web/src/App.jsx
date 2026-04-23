@@ -118,17 +118,17 @@ function categoryNameImpliesTops(name) {
   return /^tops?$/i.test(compact) || /t-?shirts?|tees?|blouses?/i.test(compact);
 }
 
-/** For Her → Tops section on home: match real admin category names. */
-function findForHerTopsCategory(categories) {
+/** Every For Her + tops category id from admin (not only the largest bucket). */
+function collectForHerTopsCategoryIds(categories) {
   const list = Array.isArray(categories) ? categories : [];
-  const candidates = list.filter((c) => {
+  const ids = new Set();
+  for (const c of list) {
     const aud = String(c.audience || "").toLowerCase();
-    return aud === "for_her" && categoryNameImpliesTops(c.name);
-  });
-  if (candidates.length === 0) return null;
-  return [...candidates].sort(
-    (a, b) => (Number(b.productCount) || 0) - (Number(a.productCount) || 0)
-  )[0];
+    if (aud !== "for_her" || !categoryNameImpliesTops(c.name)) continue;
+    const id = parseOptionalPositiveCategoryId(c.id);
+    if (id != null) ids.add(id);
+  }
+  return ids;
 }
 
 /** `categoryLabel` from API is like "For Her — Tops" (em dash). */
@@ -148,17 +148,40 @@ function categoryLabelImpliesForHerTops(label) {
   );
 }
 
-function inferHerTopsCategoryIdFromProducts(products) {
+/** Category ids used by any product whose label reads as For Her → tops. */
+function inferAllHerTopsCategoryIdsFromProducts(products) {
   const list = Array.isArray(products) ? products : [];
-  const scores = new Map();
+  const ids = new Set();
   for (const p of list) {
     if (!categoryLabelImpliesForHerTops(p.categoryLabel)) continue;
     const id = parseOptionalPositiveCategoryId(p.categoryId);
-    if (id == null) continue;
+    if (id != null) ids.add(id);
+  }
+  return ids;
+}
+
+/** “View more” target: the tops-related category with the most products. */
+function pickPrimaryHerTopsCategoryId(allProducts, candidateIds) {
+  if (!candidateIds || candidateIds.size === 0) return null;
+  const scores = new Map();
+  for (const p of allProducts) {
+    const id = parseOptionalPositiveCategoryId(p.categoryId);
+    if (id == null || !candidateIds.has(id)) continue;
     scores.set(id, (scores.get(id) || 0) + 1);
   }
-  if (scores.size === 0) return null;
+  if (scores.size === 0) return [...candidateIds][0];
   return [...scores.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function buildHerTopsShowcaseProducts(allProducts, topsCategoryIds) {
+  if (!topsCategoryIds || topsCategoryIds.size === 0) return [];
+  return allProducts
+    .filter((p) => {
+      const id = parseOptionalPositiveCategoryId(p.categoryId);
+      return id != null && topsCategoryIds.has(id);
+    })
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 4);
 }
 
 /** Prefer slot 1; otherwise first uploaded slot (matches “first image” in admin order). */
@@ -1150,23 +1173,22 @@ function WebsiteHome() {
 
         setHomeProducts(allProducts);
 
-        let topsCategoryId =
-          ENV_HOME_TOPS_CATEGORY_ID ?? findForHerTopsCategory(categories)?.id ?? null;
-        if (topsCategoryId == null) {
-          topsCategoryId = inferHerTopsCategoryIdFromProducts(allProducts);
+        let topsCategoryIds = new Set();
+        if (ENV_HOME_TOPS_CATEGORY_ID != null) {
+          topsCategoryIds.add(ENV_HOME_TOPS_CATEGORY_ID);
+        } else {
+          for (const id of collectForHerTopsCategoryIds(categories)) topsCategoryIds.add(id);
+          for (const id of inferAllHerTopsCategoryIdsFromProducts(allProducts)) {
+            topsCategoryIds.add(id);
+          }
         }
 
-        if (topsCategoryId == null) {
+        if (topsCategoryIds.size === 0) {
           setHerTopsShowcase([]);
           setHerTopsCategoryId(null);
         } else {
-          setHerTopsCategoryId(topsCategoryId);
-          const tcid = Number(topsCategoryId);
-          const topsProducts = allProducts
-            .filter((p) => Number(p.categoryId) === tcid)
-            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-            .slice(0, 4);
-          setHerTopsShowcase(topsProducts);
+          setHerTopsCategoryId(pickPrimaryHerTopsCategoryId(allProducts, topsCategoryIds));
+          setHerTopsShowcase(buildHerTopsShowcaseProducts(allProducts, topsCategoryIds));
         }
       } catch {
         if (!cancelled) {

@@ -12,10 +12,11 @@ import { PRODUCT_IMAGE_PLACEHOLDER, formatRupeeInr, productImageSrc } from "./pr
 export default function CartPanel({ variant = "page" }) {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { removeCartItem, refresh } = useShop();
+  const { removeCartItem, refresh, updateCartItemQuantity } = useShop();
   const [items, setItems] = useState([]);
   const [loadError, setLoadError] = useState("");
   const [busyId, setBusyId] = useState(null);
+  const [qtyBusyId, setQtyBusyId] = useState(null);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -39,25 +40,13 @@ export default function CartPanel({ variant = "page" }) {
     };
   }, [user, authLoading]);
 
-  async function onRemove(id) {
-    setBusyId(id);
-    try {
-      await removeCartItem(id);
-      setItems((prev) => prev.filter((x) => x.id !== id));
-      await refresh();
-    } catch {
-      /* ignore */
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  if (authLoading || !user) {
-    return <p className="text-center text-muted mb-0">Loading…</p>;
-  }
-
-  const titleClass =
-    variant === "profile" ? "customer-profile-section__title mb-3" : "website-cart-page__title mb-4";
+  const grandTotal = useMemo(() => {
+    return items.reduce((sum, line) => {
+      const unit = Number(line.finalPrice) || 0;
+      const qty = Number(line.quantity) || 0;
+      return sum + unit * qty;
+    }, 0);
+  }, [items]);
 
   const checkoutPayload = useMemo(() => {
     if (!items.length) return { lines: [], orderTotal: 0 };
@@ -77,6 +66,48 @@ export default function CartPanel({ variant = "page" }) {
     const orderTotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
     return { lines, orderTotal };
   }, [items]);
+
+  async function onRemove(id) {
+    setBusyId(id);
+    try {
+      await removeCartItem(id);
+      setItems((prev) => prev.filter((x) => x.id !== id));
+      await refresh();
+    } catch {
+      /* ignore */
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function onChangeQuantity(line, delta) {
+    const q = Number(line.quantity) || 0;
+    const next = q + delta;
+    if (next < 1) return;
+    setQtyBusyId(line.id);
+    try {
+      const result = await updateCartItemQuantity(line.id, next);
+      if (result?.deleted) {
+        setItems((prev) => prev.filter((x) => x.id !== line.id));
+      } else if (result?.quantity != null) {
+        setItems((prev) =>
+          prev.map((x) => (x.id === line.id ? { ...x, quantity: result.quantity } : x))
+        );
+      }
+      await refresh();
+    } catch {
+      /* ignore */
+    } finally {
+      setQtyBusyId(null);
+    }
+  }
+
+  if (authLoading || !user) {
+    return <p className="text-center text-muted mb-0">Loading…</p>;
+  }
+
+  const titleClass =
+    variant === "profile" ? "customer-profile-section__title mb-3" : "website-cart-page__title mb-4";
 
   function goToCheckout() {
     if (!checkoutPayload.lines.length) return;
@@ -131,25 +162,61 @@ export default function CartPanel({ variant = "page" }) {
                   {line.title}
                 </Link>
                 {line.sizeLabel ? <p className="small text-muted mb-0">Size: {line.sizeLabel}</p> : null}
-                <p className="small mb-0">Qty: {line.quantity}</p>
               </div>
-              <div className="text-end">
-                <p className="website-cart-page__price mb-2">{formatRupeeInr(line.finalPrice * line.quantity)}</p>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  disabled={busyId === line.id}
-                  onClick={() => onRemove(line.id)}
-                >
-                  Remove
-                </button>
+              <div className="text-end website-cart-page__row-actions">
+                <p className="website-cart-page__price mb-2">
+                  {formatRupeeInr((Number(line.finalPrice) || 0) * (Number(line.quantity) || 0))}
+                </p>
+                <div className="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+                  <div className="website-cart-page__qty" role="group" aria-label="Quantity">
+                    <button
+                      type="button"
+                      className="website-cart-page__qty-btn"
+                      aria-label="Decrease quantity"
+                      disabled={
+                        qtyBusyId === line.id ||
+                        busyId === line.id ||
+                        (Number(line.quantity) || 0) <= 1
+                      }
+                      onClick={() => onChangeQuantity(line, -1)}
+                    >
+                      −
+                    </button>
+                    <span className="website-cart-page__qty-value" aria-live="polite">
+                      {Number(line.quantity) || 0}
+                    </span>
+                    <button
+                      type="button"
+                      className="website-cart-page__qty-btn"
+                      aria-label="Increase quantity"
+                      disabled={qtyBusyId === line.id || busyId === line.id}
+                      onClick={() => onChangeQuantity(line, 1)}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    disabled={busyId === line.id || qtyBusyId === line.id}
+                    onClick={() => onRemove(line.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             </li>
           ))}
         </ul>
       )}
       {items.length > 0 && !loadError ? (
-        <div className="website-cart-page__actions mt-4 pt-3 pt-lg-4 border-top d-flex flex-column justify-content-end flex-sm-row flex-wrap gap-3 align-items-stretch align-items-sm-center">
+        <div className="website-cart-page__grand-total d-flex justify-content-between align-items-baseline gap-3 flex-wrap mt-4 pt-4 border-top">
+          <span className="website-cart-page__grand-total-label">Grand total</span>
+          <span className="website-cart-page__grand-total-value">{formatRupeeInr(grandTotal)}</span>
+        </div>
+      ) : null}
+      {items.length > 0 && !loadError ? (
+        <div className="website-cart-page__actions mt-3 d-flex flex-column justify-content-end flex-sm-row flex-wrap gap-3 align-items-stretch align-items-sm-center">
           <button
             type="button"
             className="btn website-product-detail__btn-cart"

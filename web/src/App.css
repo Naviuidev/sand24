@@ -5805,6 +5805,73 @@ button.public-dropdown-link.public-account-dropdown-signout {
   font-weight: 600;
 }
 
+.website-cart-page__grand-total {
+  border-top-color: rgba(42, 42, 42, 0.12);
+}
+
+.website-cart-page__grand-total-label {
+  font-family: "Bellota", system-ui, sans-serif;
+  font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+  font-weight: 600;
+  color: #2a2a2a;
+}
+
+.website-cart-page__grand-total-value {
+  font-family: "Bellota", system-ui, sans-serif;
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.website-cart-page__qty {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid rgba(42, 42, 42, 0.22);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.website-cart-page__qty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  font-family: "Bellota", system-ui, sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1;
+  color: #2a2a2a;
+  background: #faf9f7;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.website-cart-page__qty-btn:hover:not(:disabled) {
+  background: #f0ede8;
+}
+
+.website-cart-page__qty-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.website-cart-page__qty-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  padding: 0.25rem 0.35rem;
+  font-family: "Bellota", system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  background: #fff;
+  border-inline: 1px solid rgba(42, 42, 42, 0.12);
+}
+
 .website-cart-page__actions {
   border-top-color: rgba(42, 42, 42, 0.12);
 }
