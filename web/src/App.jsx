@@ -79,50 +79,27 @@ const STUDIO_SUSTAINABILITY_CARDS = [
   },
 ];
 
-const HOME_PILLAR_CARDS = [
-  {
-    key: "prints",
-    imageSrc: "/assets/images/pillars/prints.png",
-    imageWidth: 464,
-    imageHeight: 357,
-    imageAlt: "Model in a hand-block printed dress beside a tree",
-    title: "Browse Our Newest Prints",
-    tagline: "Shop by Green Touch",
-    btnLabel: "Shop Prints",
-    href: "/sustainability",
-  },
-  {
-    key: "craft",
-    imageSrc: "/assets/images/pillars/craft.png",
-    imageWidth: 464,
-    imageHeight: 357,
-    imageAlt: "Hands dipping natural fabric into a warm dye bath",
-    title: "Craft & Sustainability",
-    tagline: "Clothing That Tells a Story",
-    btnLabel: "Our Green Journal",
-    href: "/sustainability",
-  },
-  {
-    key: "vision",
-    imageSrc: "/assets/images/pillars/vision.png",
-    imageWidth: 464,
-    imageHeight: 357,
-    imageAlt: "Natural dye materials and folded hand-dyed textiles",
-    title: "Design that Puts Nature First",
-    tagline: "We Craft Slow",
-    btnLabel: "Our Sand 24 Vision",
-    href: "/sustainability",
-  },
-];
+function homeJournalCoverSrc(postId) {
+  return `${API_BASE_URL}/api/blog-posts/${postId}/cover`;
+}
+
+/** Home journal cards: first four words only, then an ellipsis if truncated. */
+function truncateJournalTitleToFourWords(title) {
+  const raw = String(title ?? "").trim();
+  if (!raw) return "";
+  const words = raw.split(/\s+/).filter(Boolean);
+  if (words.length <= 4) return raw;
+  return `${words.slice(0, 4).join(" ")}...`;
+}
 
 function parseOptionalPositiveCategoryId(value) {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-/** Optional override when auto-detection fails: `VITE_HOME_DRESS_CATEGORY_ID` (numeric id from admin). */
-const ENV_HOME_DRESS_CATEGORY_ID = parseOptionalPositiveCategoryId(
-  import.meta.env.VITE_HOME_DRESS_CATEGORY_ID
+/** Optional override for For Her → Tops: `VITE_HOME_TOPS_CATEGORY_ID`. */
+const ENV_HOME_TOPS_CATEGORY_ID = parseOptionalPositiveCategoryId(
+  import.meta.env.VITE_HOME_TOPS_CATEGORY_ID
 );
 
 function normalizeCategoryText(value) {
@@ -132,21 +109,21 @@ function normalizeCategoryText(value) {
     .trim();
 }
 
-/** Category row name looks like Dress / Dresses (For Her is matched separately). */
-function categoryNameImpliesDress(name) {
+/** Category row name looks like Tops / Top (For Her is matched separately). */
+function categoryNameImpliesTops(name) {
   const s = normalizeCategoryText(name);
   if (!s) return false;
-  if (/\b(dresses?)\b/i.test(s)) return true;
+  if (/\btops?\b/i.test(s)) return true;
   const compact = s.replace(/\s+/g, "");
-  return /^dress(es)?$/i.test(compact);
+  return /^tops?$/i.test(compact) || /t-?shirts?|tees?|blouses?/i.test(compact);
 }
 
-/** For Her → Dress section on home: match real admin category names. */
-function findForHerDressCategory(categories) {
+/** For Her → Tops section on home: match real admin category names. */
+function findForHerTopsCategory(categories) {
   const list = Array.isArray(categories) ? categories : [];
   const candidates = list.filter((c) => {
     const aud = String(c.audience || "").toLowerCase();
-    return aud === "for_her" && categoryNameImpliesDress(c.name);
+    return aud === "for_her" && categoryNameImpliesTops(c.name);
   });
   if (candidates.length === 0) return null;
   return [...candidates].sort(
@@ -154,25 +131,28 @@ function findForHerDressCategory(categories) {
   )[0];
 }
 
-/** `categoryLabel` from API is like "For Her — Dress" (em dash). */
-function categoryLabelImpliesForHerDress(label) {
+/** `categoryLabel` from API is like "For Her — Tops" (em dash). */
+function categoryLabelImpliesForHerTops(label) {
   const t = normalizeCategoryText(label);
   if (!t) return false;
   const lower = t.toLowerCase();
   if (!lower.includes("for her")) return false;
-  if (/\b(dresses?)\b/i.test(t)) return true;
+  if (/\btops?\b/i.test(t)) return true;
   const segments = t.split(/[—–\-]/).map((s) => s.trim().toLowerCase());
-  return segments.some((seg) => seg === "dress" || seg === "dresses" || /\b(dresses?)\b/.test(seg));
+  return segments.some(
+    (seg) =>
+      seg === "top" ||
+      seg === "tops" ||
+      /\btops?\b/.test(seg) ||
+      /t-?shirts?|tees?/.test(seg)
+  );
 }
 
-/**
- * Vote by `categoryId` so we pick the label that most products use (handles odd first rows).
- */
-function inferHerDressCategoryIdFromProducts(products) {
+function inferHerTopsCategoryIdFromProducts(products) {
   const list = Array.isArray(products) ? products : [];
   const scores = new Map();
   for (const p of list) {
-    if (!categoryLabelImpliesForHerDress(p.categoryLabel)) continue;
+    if (!categoryLabelImpliesForHerTops(p.categoryLabel)) continue;
     const id = parseOptionalPositiveCategoryId(p.categoryId);
     if (id == null) continue;
     scores.set(id, (scores.get(id) || 0) + 1);
@@ -1141,17 +1121,21 @@ function CustomerAddressesPage() {
 /** Public storefront home (`/`). Admin remains under `/admin/*`. */
 function WebsiteHome() {
   const [homeProducts, setHomeProducts] = useState([]);
-  /** Latest four products in For Her → Dress (by `created_at` from API). */
-  const [herDressShowcase, setHerDressShowcase] = useState([]);
-  const [herDressCategoryId, setHerDressCategoryId] = useState(null);
+  /** Latest four products in For Her → Tops (by `created_at` from API). */
+  const [herTopsShowcase, setHerTopsShowcase] = useState([]);
+  const [herTopsCategoryId, setHerTopsCategoryId] = useState(null);
+  /** Latest four published journal posts for the home pillar band. */
+  const [homeJournalPosts, setHomeJournalPosts] = useState([]);
+  const [homeJournalLoaded, setHomeJournalLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [catSettled, prodSettled] = await Promise.allSettled([
+        const [catSettled, prodSettled, blogSettled] = await Promise.allSettled([
           axios.get(`${API_BASE_URL}/api/categories`),
           axios.get(`${API_BASE_URL}/api/products`),
+          axios.get(`${API_BASE_URL}/api/blog-posts`),
         ]);
         if (cancelled) return;
 
@@ -1159,34 +1143,40 @@ function WebsiteHome() {
           catSettled.status === "fulfilled" ? catSettled.value.data?.data || [] : [];
         const allProducts =
           prodSettled.status === "fulfilled" ? prodSettled.value.data?.data || [] : [];
+        const rawBlogs =
+          blogSettled.status === "fulfilled" ? blogSettled.value.data?.data || [] : [];
+        const blogs = Array.isArray(rawBlogs) ? rawBlogs.slice(0, 4) : [];
+        setHomeJournalPosts(blogs);
 
         setHomeProducts(allProducts);
 
-        let dressCategoryId =
-          ENV_HOME_DRESS_CATEGORY_ID ?? findForHerDressCategory(categories)?.id ?? null;
-        if (dressCategoryId == null) {
-          dressCategoryId = inferHerDressCategoryIdFromProducts(allProducts);
+        let topsCategoryId =
+          ENV_HOME_TOPS_CATEGORY_ID ?? findForHerTopsCategory(categories)?.id ?? null;
+        if (topsCategoryId == null) {
+          topsCategoryId = inferHerTopsCategoryIdFromProducts(allProducts);
         }
 
-        if (dressCategoryId == null) {
-          setHerDressShowcase([]);
-          setHerDressCategoryId(null);
-          return;
+        if (topsCategoryId == null) {
+          setHerTopsShowcase([]);
+          setHerTopsCategoryId(null);
+        } else {
+          setHerTopsCategoryId(topsCategoryId);
+          const tcid = Number(topsCategoryId);
+          const topsProducts = allProducts
+            .filter((p) => Number(p.categoryId) === tcid)
+            .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+            .slice(0, 4);
+          setHerTopsShowcase(topsProducts);
         }
-
-        setHerDressCategoryId(dressCategoryId);
-        const cid = Number(dressCategoryId);
-        const dressProducts = allProducts
-          .filter((p) => Number(p.categoryId) === cid)
-          .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-          .slice(0, 4);
-        setHerDressShowcase(dressProducts);
       } catch {
         if (!cancelled) {
           setHomeProducts([]);
-          setHerDressShowcase([]);
-          setHerDressCategoryId(null);
+          setHerTopsShowcase([]);
+          setHerTopsCategoryId(null);
+          setHomeJournalPosts([]);
         }
+      } finally {
+        if (!cancelled) setHomeJournalLoaded(true);
       }
     })();
     return () => {
@@ -1447,9 +1437,9 @@ function WebsiteHome() {
                     {homeProducts[0].title}
                   </h2>
                   <p className="website-featured-product__tagline">
-                    Better for you
+                  “Timeless silhouette, 
                     <br />
-                    Better for planet
+                    luminous hue”
                   </p>
                   <div className="website-featured-product__price-row">
                     {homeProducts[0].offerPercent > 0 &&
@@ -1492,10 +1482,16 @@ function WebsiteHome() {
           <h2 id="mountain-meadow-heading" className="website-mountain-meadow__title">
           "A story of earth, in every thread"<br/>"Soft on you. Gentle on the earth."
           </h2>
-          <p className="website-mountain-meadow__tagline">Better for you Better for planet</p>
-          {herDressShowcase.length > 0 ? (
-            <ul className="website-mountain-meadow__grid list-unstyled mb-0">
-              {herDressShowcase.map((p) => (
+          <p className="website-mountain-meadow__tagline">Sustainable by Nature. Designed for You.</p>
+          <h3 id="mountain-meadow-tops" className="website-mountain-meadow__collection-heading">
+            Tops
+          </h3>
+          {herTopsShowcase.length > 0 ? (
+            <ul
+              className="website-mountain-meadow__grid list-unstyled mb-0"
+              aria-labelledby="mountain-meadow-tops"
+            >
+              {herTopsShowcase.map((p) => (
                 <li key={p.id} className="website-mountain-meadow__cell">
                   <Link to={`/products/${p.id}`} className="website-mountain-meadow__card">
                     <span className="website-mountain-meadow__frame">
@@ -1519,16 +1515,16 @@ function WebsiteHome() {
             </ul>
           ) : (
             <p className="website-mountain-meadow__empty mb-0">
-              {herDressCategoryId != null
-                ? "Dress styles will appear here soon."
+              {herTopsCategoryId != null
+                ? "Top styles will appear here soon."
                 : "Browse all products to explore our collections."}
             </p>
           )}
           <div className="website-mountain-meadow__cta">
             <Link
               to={
-                herDressCategoryId != null
-                  ? `/products?category=${herDressCategoryId}`
+                herTopsCategoryId != null
+                  ? `/products?category=${herTopsCategoryId}`
                   : "/products"
               }
               className="website-intro-cta__btn"
@@ -1553,9 +1549,9 @@ function WebsiteHome() {
                   {CHANDERI_SPOTLIGHT_TITLE}
                 </h2>
                 <p className="website-featured-product__tagline">
-                  Better for you
+                 Crafted for You,
                   <br />
-                  Better for planet
+                  Conscious for Earth.
                 </p>
                 <Link to="/products" className="website-featured-product__btn">
                   View More
@@ -1582,45 +1578,7 @@ function WebsiteHome() {
         </div>
       </section>
      
-      <section
-        id="sustainability"
-        className="website-home-section py-5 website-studio-sustain"
-        aria-labelledby="sustainability-heading"
-      >
-        <h2 id="sustainability-heading" className="visually-hidden">
-          Sustainability at Sand 24
-        </h2>
-        <div className="container position-relative website-studio-sustain__inner">
-          <div className="row justify-content-center g-4 g-lg-5 website-studio-sustain__row">
-            {STUDIO_SUSTAINABILITY_CARDS.map((card) => (
-              <div key={card.key} className="col-12 col-lg-6">
-                <article className="website-studio-sustain__card h-100">
-                  <div className="website-studio-sustain__media">
-                    <img
-                      src={card.imageSrc}
-                      alt={card.imageAlt}
-                      className="website-studio-sustain__img img-fluid"
-                      width={card.imageWidth}
-                      height={card.imageHeight}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </div>
-                  <p className="website-studio-sustain__text">{card.body}</p>
-                  <div className="website-studio-sustain__cta">
-                    <Link to="/story" className="website-intro-cta__btn">
-                      View More
-                      <span className="website-intro-cta__btn-arrow" aria-hidden>
-                        →
-                      </span>
-                    </Link>
-                  </div>
-                </article>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+     
       <section
         className="website-home-section py-5 website-featured-product website-featured-product--chanderi website-featured-product--chanderi-boy"
         aria-labelledby="chanderi-boy-spotlight-heading"
@@ -1662,6 +1620,45 @@ function WebsiteHome() {
         </div>
       </section>
       <section
+        id="sustainability"
+        className="website-home-section py-5 website-studio-sustain"
+        aria-labelledby="sustainability-heading"
+      >
+        <h2 id="sustainability-heading" className="visually-hidden">
+          Sustainability at Sand 24
+        </h2>
+        <div className="container position-relative website-studio-sustain__inner">
+          <div className="row justify-content-center g-4 g-lg-5 website-studio-sustain__row">
+            {STUDIO_SUSTAINABILITY_CARDS.map((card) => (
+              <div key={card.key} className="col-12 col-lg-6">
+                <article className="website-studio-sustain__card h-100">
+                  <div className="website-studio-sustain__media">
+                    <img
+                      src={card.imageSrc}
+                      alt={card.imageAlt}
+                      className="website-studio-sustain__img img-fluid"
+                      width={card.imageWidth}
+                      height={card.imageHeight}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                  <p className="website-studio-sustain__text">{card.body}</p>
+                  <div className="website-studio-sustain__cta">
+                    <Link to="/story" className="website-intro-cta__btn">
+                      View More
+                      <span className="website-intro-cta__btn-arrow" aria-hidden>
+                        →
+                      </span>
+                    </Link>
+                  </div>
+                </article>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+      <section
         id="new-collection"
         className="website-linen-collection-hero"
         aria-labelledby="linen-collection-heading"
@@ -1691,55 +1688,66 @@ function WebsiteHome() {
         </div>
       </section>
       <section
+        id="journal"
         className="website-home-section website-pillar-trio website-home-page__pre-footer-band py-5"
         aria-labelledby="pillar-trio-heading"
       >
-        <h2 id="pillar-trio-heading" className="visually-hidden">
-          Explore prints, craft, and our vision
-        </h2>
         <div className="container website-pillar-trio__inner ">
-          <div className="row g-4 g-lg-5 justify-content-center website-pillar-trio__row">
-            {HOME_PILLAR_CARDS.map((card) => (
-              <div key={card.key} className="col-12 col-md-6 col-lg-4">
-                <article
-                  className="website-pillar-trio__card h-100"
-                  id={card.key === "craft" ? "journal" : undefined}
-                >
-                  <div className="website-pillar-trio__media">
-                    <img
-                      src={card.imageSrc}
-                      alt={card.imageAlt}
-                      className="website-pillar-trio__img img-fluid"
-                      width={card.imageWidth}
-                      height={card.imageHeight}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </div>
-                  <h3 className="website-pillar-trio__title">{card.title}</h3>
-                  <p className="website-pillar-trio__tagline">{card.tagline}</p>
-                  {card.href.startsWith("/") ? (
+          <div className="row">
+            <div className="col-12 d-flex justify-content-center text-center">
+              <h2 id="pillar-trio-heading" className="website-pillar-trio__page-title">
+                Sand24 Latest Journal
+              </h2>
+            </div>
+          </div>
+          {!homeJournalLoaded ? (
+            <p className="website-pillar-trio__status text-center mb-0 mt-4">Loading journal…</p>
+          ) : homeJournalPosts.length === 0 ? (
+            <p className="website-pillar-trio__status text-center mb-0 mt-4">
+              No published journal posts yet.{" "}
+              <Link to="/journal" className="website-pillar-trio__status-link">
+                Visit the journal
+              </Link>
+            </p>
+          ) : (
+            <div className="row g-4 g-lg-5 justify-content-start website-pillar-trio__row mt-4">
+              {homeJournalPosts.map((post) => (
+                <div key={post.id} className="col-12 col-md-6 col-xl-3">
+                  <article className="website-pillar-trio__card h-100">
+                    <div className="website-pillar-trio__media">
+                      <img
+                        src={homeJournalCoverSrc(post.id)}
+                        alt=""
+                        className="website-pillar-trio__img img-fluid"
+                        width={464}
+                        height={357}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.currentTarget.classList.add("website-pillar-trio__img--hidden");
+                        }}
+                      />
+                    </div>
+                    <h3 className="website-pillar-trio__title" title={post.title}>
+                      {truncateJournalTitleToFourWords(post.title)}
+                    </h3>
+                    {post.listingSummary ? (
+                      <p className="website-pillar-trio__tagline">{post.listingSummary}</p>
+                    ) : null}
                     <Link
-                      to={card.href}
+                      to={`/journal/${post.slug}`}
                       className="website-intro-cta__btn website-pillar-trio__btn"
                     >
-                      {card.btnLabel}
+                      View complete journal
                       <span className="website-intro-cta__btn-arrow" aria-hidden>
                         →
                       </span>
                     </Link>
-                  ) : (
-                    <a href={card.href} className="website-intro-cta__btn website-pillar-trio__btn">
-                      {card.btnLabel}
-                      <span className="website-intro-cta__btn-arrow" aria-hidden>
-                        →
-                      </span>
-                    </a>
-                  )}
-                </article>
-              </div>
-            ))}
-          </div>
+                  </article>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
