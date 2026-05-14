@@ -33,6 +33,21 @@ const MYSQL_SESSION_MAX_PACKET = (() => {
   return 128 * MB;
 })();
 
+/** Single-process pool size. Total MySQL sessions ≈ PM2 instances × this value — stay under max_connections. */
+const DB_POOL_CONNECTION_LIMIT = clampEnvInt("DB_POOL_CONNECTION_LIMIT", 20, 2, 100);
+/**
+ * Max queued acquires when all pool connections are busy. 0 = unlimited (not recommended in production).
+ * Unset defaults to 200 so overload fails fast instead of hanging until Nginx times out.
+ */
+function parseDbPoolQueueLimit() {
+  const raw = process.env.DB_POOL_QUEUE_LIMIT;
+  if (raw === undefined || String(raw).trim() === "") return 200;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 200;
+  return Math.floor(n);
+}
+const DB_POOL_QUEUE_LIMIT = parseDbPoolQueueLimit();
+
 const app = express();
 const PORT = process.env.PORT || 5001;
 const upload = multer({ storage: multer.memoryStorage() });
@@ -137,14 +152,55 @@ const db = mysql.createPool({
   database: process.env.DB_NAME || "fashion_db",
   port: Number(process.env.DB_PORT) || 3306,
   waitForConnections: true,
-  connectionLimit: 10,
+  connectionLimit: DB_POOL_CONNECTION_LIMIT,
+  queueLimit: DB_POOL_QUEUE_LIMIT,
   charset: "utf8mb4",
   connectTimeout: 60000,
   enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
 });
 
-/** Request a larger per-query packet limit for this connection (cannot exceed MySQL GLOBAL). */
-async function mysqlBumpSessionPacket(connection) {
+let lastDbPoolEnqueueLogMs = 0;
+db.on("enqueue", () => {
+  const now = Date.now();
+  if (now - lastDbPoolEnqueueLogMs < 10_000) return;
+  lastDbPoolEnqueueLogMs = now;
+  console.warn(
+    `[Sand24] MySQL pool saturated (${DB_POOL_CONNECTION_LIMIT} connections in use); requests are queuing. ` +
+      "Raise DB_POOL_CONNECTION_LIMIT if MySQL max_connections allows it, or reduce PM2 instances / load."
+  );
+});
+
+/** True when the server or pool is overloaded / reset — respond with 503 and a safe client message. */
+function isTransientMysqlCapacityError(err) {
+  if (!err) return false;
+  const msg = String(err.message || "");
+  if (msg.includes("Queue limit reached")) return true;
+  if (msg.includes("Too many connections")) return true;
+  const code = err.code;
+  if (
+    code === "ECONNRESET" ||
+    code === "ECONNREFUSED" ||
+    code === "PROTOCOL_CONNECTION_LOST" ||
+    code === "PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR"
+  ) {
+    return true;
+  }
+  if (err.errno === 1040) return true;
+  if (code === "ER_CON_COUNT_ERROR") return true;
+  return false;
+}
+
+function logDbError(context, err) {
+  console.error(`[Sand24] ${context}:`, err && err.code, err && err.errno, err && err.message);
+}
+
+/**
+ * Raise SESSION max_allowed_packet only when this connection will carry large BLOBs.
+ * Skipping avoids extra round-trips and log noise on text-only operations.
+ */
+async function mysqlBumpSessionPacketIfNeeded(connection, needsLargeBinaryPayload) {
+  if (!needsLargeBinaryPayload) return;
   try {
     await connection.query("SET SESSION max_allowed_packet = ?", [MYSQL_SESSION_MAX_PACKET]);
   } catch (e) {
@@ -632,10 +688,14 @@ app.get("/api/health", async (_req, res) => {
     await db.query("SELECT 1");
     res.json({ status: "ok", database: "connected" });
   } catch (error) {
-    res.status(500).json({
+    logDbError("GET /api/health", error);
+    const status = isTransientMysqlCapacityError(error) ? 503 : 500;
+    res.status(status).json({
       status: "error",
       database: "disconnected",
-      message: error.message,
+      message: isTransientMysqlCapacityError(error)
+        ? "Database is busy or rejecting connections. Check MySQL max_connections and app pool settings."
+        : error.message,
     });
   }
 });
@@ -3294,7 +3354,15 @@ app.get("/api/products", async (req, res) => {
 
     res.json({ success: true, data });
   } catch (error) {
-    console.error("GET /api/products:", error.code, error.message);
+    logDbError("GET /api/products", error);
+    if (isTransientMysqlCapacityError(error)) {
+      res.status(503).json({
+        success: false,
+        message: "Catalog is temporarily unavailable. Please try again in a moment.",
+        error: error.message,
+      });
+      return;
+    }
     if (error.code === "ER_NO_SUCH_TABLE") {
       res.status(503).json({
         success: false,
@@ -3380,6 +3448,15 @@ app.get("/api/products/:id", async (req, res) => {
       },
     });
   } catch (error) {
+    logDbError("GET /api/products/:id", error);
+    if (isTransientMysqlCapacityError(error)) {
+      res.status(503).json({
+        success: false,
+        message: "Product details are temporarily unavailable. Please try again shortly.",
+        error: error.message,
+      });
+      return;
+    }
     res.status(500).json({
       success: false,
       message: "Failed to load product.",
@@ -3415,7 +3492,13 @@ app.post("/api/products", productImageUpload, async (req, res) => {
 
     connection = await db.getConnection();
     try {
-      await mysqlBumpSessionPacket(connection);
+      const productHasImagePayload = Boolean(
+        (img1 && img1.buffer?.length) ||
+          (img2 && img2.buffer?.length) ||
+          (img3 && img3.buffer?.length) ||
+          (img4 && img4.buffer?.length)
+      );
+      await mysqlBumpSessionPacketIfNeeded(connection, productHasImagePayload);
       await connection.beginTransaction();
 
       const sizesJson = JSON.stringify(p.sizes);
@@ -3496,8 +3579,19 @@ app.post("/api/products", productImageUpload, async (req, res) => {
       }
     }
   } catch (error) {
-    console.error("POST /api/products:", error);
+    logDbError("POST /api/products", error);
     const sqlMsg = error.sqlMessage || error.code;
+
+    if (isTransientMysqlCapacityError(error)) {
+      if (!res.headersSent) {
+        res.status(503).json({
+          success: false,
+          message: "Database is busy. Please try again in a moment.",
+          error: error.message,
+        });
+      }
+      return;
+    }
 
     if (
       error.errno === 1153 ||
@@ -3558,7 +3652,6 @@ app.put("/api/products/:id", productImageUpload, async (req, res) => {
 
     let connection = await db.getConnection();
     try {
-      await mysqlBumpSessionPacket(connection);
       await connection.beginTransaction();
 
       const [existingRows] = await connection.query(
@@ -3573,6 +3666,20 @@ app.put("/api/products/:id", productImageUpload, async (req, res) => {
 
       const prev = existingRows[0];
       const oldCategoryId = prev.category_id;
+
+      const hasNewImageBytes = Boolean(
+        (img1 && img1.buffer?.length) ||
+          (img2 && img2.buffer?.length) ||
+          (img3 && img3.buffer?.length) ||
+          (img4 && img4.buffer?.length)
+      );
+      const hasExistingImageBlob = Boolean(
+        (prev.image_1_data && prev.image_1_data.length) ||
+          (prev.image_2_data && prev.image_2_data.length) ||
+          (prev.image_3_data && prev.image_3_data.length) ||
+          (prev.image_4_data && prev.image_4_data.length)
+      );
+      await mysqlBumpSessionPacketIfNeeded(connection, hasNewImageBytes || hasExistingImageBlob);
 
       const m1 = img1 ? uploadMime(img1) : prev.image_1_mime;
       const d1 = img1 ? img1.buffer : prev.image_1_data;
@@ -3670,8 +3777,19 @@ app.put("/api/products/:id", productImageUpload, async (req, res) => {
       }
     }
   } catch (error) {
-    console.error("PUT /api/products/:id:", error);
+    logDbError("PUT /api/products/:id", error);
     const sqlMsg = error.sqlMessage || error.code;
+
+    if (isTransientMysqlCapacityError(error)) {
+      if (!res.headersSent) {
+        res.status(503).json({
+          success: false,
+          message: "Database is busy. Please try again in a moment.",
+          error: error.message,
+        });
+      }
+      return;
+    }
 
     if (
       error.errno === 1153 ||
@@ -3747,12 +3865,15 @@ app.delete("/api/products/:id", async (req, res) => {
         connection = null;
       }
     }
-    console.error("DELETE /api/products/:id:", error);
+    logDbError("DELETE /api/products/:id", error);
     const sqlMsg = error.sqlMessage || error.code;
     if (!res.headersSent) {
-      res.status(500).json({
+      const status = isTransientMysqlCapacityError(error) ? 503 : 500;
+      res.status(status).json({
         success: false,
-        message: "Failed to delete product.",
+        message: isTransientMysqlCapacityError(error)
+          ? "Database is busy. Please try again in a moment."
+          : "Failed to delete product.",
         error: error.message,
         ...(sqlMsg ? { sqlMessage: sqlMsg } : {}),
       });
@@ -3940,9 +4061,13 @@ app.post(
       return;
     }
 
+    const blogNeedsLargePacket = Boolean(
+      (coverFile && coverFile.buffer?.length) || rowsToInsert.some((r) => r.image_data)
+    );
+
     const connection = await db.getConnection();
     try {
-      await mysqlBumpSessionPacket(connection);
+      await mysqlBumpSessionPacketIfNeeded(connection, blogNeedsLargePacket);
       await connection.beginTransaction();
       const [ins] = await connection.query(
         `INSERT INTO blog_posts (
@@ -3990,7 +4115,14 @@ app.post(
       } catch (_) {
         /* ignore */
       }
-      console.error("POST /api/admin/blog-posts:", error);
+      logDbError("POST /api/admin/blog-posts", error);
+      if (isTransientMysqlCapacityError(error)) {
+        res.status(503).json({
+          success: false,
+          message: "Database is busy. Please try again in a moment.",
+        });
+        return;
+      }
       if (error.code === "ER_NO_SUCH_TABLE") {
         res.status(503).json({
           success: false,
@@ -4091,7 +4223,14 @@ app.get("/api/blog-posts", async (_req, res) => {
       res.json({ success: true, data: [] });
       return;
     }
-    console.error("GET /api/blog-posts:", error);
+    logDbError("GET /api/blog-posts", error);
+    if (isTransientMysqlCapacityError(error)) {
+      res.status(503).json({
+        success: false,
+        message: "Journals are temporarily unavailable. Please try again shortly.",
+      });
+      return;
+    }
     res.status(500).json({ success: false, message: "Failed to load journals." });
   }
 });
@@ -4146,7 +4285,14 @@ app.get("/api/blog-posts/by-slug/:slug", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("GET by-slug:", error);
+    logDbError("GET /api/blog-posts/by-slug", error);
+    if (isTransientMysqlCapacityError(error)) {
+      res.status(503).json({
+        success: false,
+        message: "This post is temporarily unavailable. Please try again shortly.",
+      });
+      return;
+    }
     res.status(500).json({ success: false, message: "Failed to load post." });
   }
 });
@@ -4217,14 +4363,17 @@ app.use((err, req, res, _next) => {
     return res.status(400).json({ success: false, message: err.message });
   }
 
-  console.error("Unhandled API error:", err);
+  logDbError("Unhandled API error", err);
   if (res.headersSent) {
     return;
   }
   const sqlMsg = err.sqlMessage || err.code;
-  res.status(500).json({
+  const status = isTransientMysqlCapacityError(err) ? 503 : 500;
+  res.status(status).json({
     success: false,
-    message: err.message || "Internal server error",
+    message: isTransientMysqlCapacityError(err)
+      ? "Service is busy. Please try again shortly."
+      : err.message || "Internal server error",
     ...(sqlMsg ? { sqlMessage: sqlMsg } : {}),
   });
 });
@@ -4249,6 +4398,10 @@ function warmupMailOutbound() {
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(
+    `MySQL pool: connectionLimit=${DB_POOL_CONNECTION_LIMIT}, queueLimit=${DB_POOL_QUEUE_LIMIT || "unlimited"} ` +
+      "(tune DB_POOL_CONNECTION_LIMIT / DB_POOL_QUEUE_LIMIT; PM2 instance count multiplies connections)"
+  );
   console.log(`Database: ${process.env.DB_NAME || "fashion_db"} (create tables from backend/*.sql if needed)`);
   console.log(`Blog images: max ${MAX_BLOG_UPLOAD_MB} MB per file (MAX_BLOG_UPLOAD_MB in backend/.env; MySQL max_allowed_packet must be high enough)`);
   const smtpOk = Boolean(process.env.SMTP_USER?.trim() && String(process.env.SMTP_PASS ?? "").trim());
@@ -4285,3 +4438,27 @@ server.on("error", (err) => {
 
 server.requestTimeout = 600000;
 server.headersTimeout = 610000;
+
+async function shutdownSand24(signal) {
+  console.log(`[Sand24] ${signal} — closing HTTP server and draining MySQL pool…`);
+  await new Promise((resolve) => server.close(() => resolve()));
+  try {
+    await db.end();
+  } catch (e) {
+    console.warn("[Sand24] db.end():", e.message);
+  }
+  process.exit(0);
+}
+
+process.once("SIGTERM", () => {
+  shutdownSand24("SIGTERM").catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+});
+process.once("SIGINT", () => {
+  shutdownSand24("SIGINT").catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+});
